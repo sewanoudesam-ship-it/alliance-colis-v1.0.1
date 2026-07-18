@@ -36,5 +36,10 @@ dist
 .env
 .env.local
 
+# Cloudflare Wrangler
+.wrangler
+.dev.vars
+.dev.vars.*
+
 # Logs
 npm-debug.log*
