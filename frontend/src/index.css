@@ -1,0 +1,738 @@
+/* ============================================================================
+   ALLIANCE COLIS — SYSTÈME DE DESIGN V1
+   Palette : ivoire chaud + indigo nuit + orange de marque + cyan (clin d'œil
+   aux moyens de paiement mobile). Signature : bordures "timbre postal"
+   (pointillés + coins découpés) sur les codes de suivi et badges de statut,
+   clin d'œil au métier du colis.
+   ============================================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  --bg: #FAF6F0;
+  --surface: #FFFFFF;
+  --surface-alt: #F1ECE3;
+  --ink: #1C1730;
+  --ink-soft: #565070;
+  --ink-faint: #8B85A0;
+  --line: #E7E0D3;
+
+  --brand: #F68B00;
+  --brand-dark: #D97400;
+  --brand-tint: #FFF1DD;
+
+  --accent: #17B4CE;
+  --accent-tint: #E4F8FB;
+
+  --success: #1E9E63;
+  --success-tint: #E4F6EC;
+  --danger: #E14A4A;
+  --danger-tint: #FCEAEA;
+  --warning: #C97A0A;
+  --warning-tint: #FBF0DD;
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
+  --shadow-sm: 0 1px 2px rgba(28, 23, 48, 0.06);
+  --shadow-md: 0 8px 24px rgba(28, 23, 48, 0.08);
+  --shadow-lg: 0 16px 40px rgba(28, 23, 48, 0.14);
+
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+p { margin: 0; }
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: 15px;
+}
+
+button {
+  cursor: pointer;
+}
+
+a { color: inherit; }
+
+::selection {
+  background: var(--brand-tint);
+  color: var(--brand-dark);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Respect des préférences de mouvement réduit */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ============================================================================
+   MOTIF SIGNATURE — bande de losanges (clin d'œil pagne/wax), utilisée avec
+   parcimonie : uniquement sous le header principal et en fond du header admin.
+   ============================================================================ */
+.ac-diamond-strip {
+  height: 6px;
+  width: 100%;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--brand) 0px,
+    var(--brand) 6px,
+    var(--accent) 6px,
+    var(--accent) 12px
+  );
+  opacity: 0.9;
+}
+
+/* ============================================================================
+   LAYOUT
+   ============================================================================ */
+.ac-app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.ac-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--ink);
+  color: #fff;
+}
+
+.ac-header__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  gap: 12px;
+}
+
+.ac-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.ac-header__brand img { border-radius: 8px; }
+
+.ac-icon-btn {
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: background 0.15s ease;
+}
+.ac-icon-btn:hover { background: rgba(255,255,255,0.16); }
+
+.ac-main {
+  flex: 1;
+  padding: 18px 16px 100px;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ============================================================================
+   NAVIGATION BASSE (mobile-first)
+   ============================================================================ */
+.ac-tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  display: flex;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 20px rgba(28,23,48,0.06);
+}
+
+.ac-tabbar__item {
+  flex: 1;
+  border: none;
+  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 600;
+  position: relative;
+}
+
+.ac-tabbar__item.active {
+  color: var(--brand-dark);
+}
+
+.ac-tabbar__icon { font-size: 20px; }
+
+.ac-tabbar__badge {
+  position: absolute;
+  top: 2px;
+  right: calc(50% - 18px);
+  background: var(--brand);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+/* ============================================================================
+   MENU LATÉRAL (hamburger)
+   ============================================================================ */
+.ac-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 16, 35, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 50;
+  animation: ac-fade-in 0.18s ease;
+}
+
+.ac-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(300px, 84vw);
+  background: var(--surface);
+  z-index: 51;
+  padding: 22px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: ac-slide-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow-y: auto;
+}
+
+@keyframes ac-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ac-slide-in { from { transform: translateX(-24px); opacity: 0.6; } to { transform: translateX(0); opacity: 1; } }
+
+.ac-drawer__profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 10px;
+}
+
+.ac-drawer__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--brand-tint);
+  color: var(--brand-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.ac-drawer__section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  padding: 14px 10px 6px;
+}
+
+.ac-drawer__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  text-align: left;
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 14.5px;
+}
+.ac-drawer__item:hover { background: var(--surface-alt); }
+.ac-drawer__item--danger { color: var(--danger); }
+
+/* ============================================================================
+   CARTES / SURFACES
+   ============================================================================ */
+.ac-card {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--line);
+}
+
+.ac-card--pad { padding: 18px; }
+
+.ac-section-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  margin-bottom: 10px;
+}
+
+.ac-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.ac-page-subtitle {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-bottom: 18px;
+}
+
+/* ============================================================================
+   BOUTONS
+   ============================================================================ */
+.ac-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-weight: 600;
+  font-size: 14.5px;
+  transition: transform 0.1s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  width: 100%;
+}
+.ac-btn:active { transform: scale(0.98); }
+.ac-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.ac-btn--primary { background: var(--brand); color: #fff; box-shadow: 0 6px 16px rgba(246,139,0,0.28); }
+.ac-btn--primary:hover:not(:disabled) { background: var(--brand-dark); }
+
+.ac-btn--dark { background: var(--ink); color: #fff; }
+
+.ac-btn--outline { background: transparent; color: var(--ink); border: 1.5px solid var(--line); box-shadow: none; }
+.ac-btn--outline:hover { border-color: var(--ink-faint); }
+
+.ac-btn--ghost { background: transparent; color: var(--brand-dark); box-shadow: none; padding: 8px 10px; width: auto; }
+
+.ac-btn--danger { background: var(--danger); color: #fff; }
+
+.ac-btn--sm { padding: 9px 14px; font-size: 13px; width: auto; }
+.ac-btn--block { width: 100%; }
+
+/* ============================================================================
+   FORMULAIRES
+   ============================================================================ */
+.ac-field { margin-bottom: 14px; }
+
+.ac-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.ac-input, .ac-select, textarea.ac-input {
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  transition: border-color 0.15s ease;
+}
+.ac-input:focus, .ac-select:focus { border-color: var(--brand); }
+
+.ac-input-group { display: flex; gap: 8px; }
+.ac-input-group .ac-select { flex: 0 0 108px; }
+
+/* ============================================================================
+   BADGES / STATUTS — style "timbre" (clin d'œil postal)
+   ============================================================================ */
+.ac-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ac-badge--neutral { background: var(--surface-alt); color: var(--ink-soft); }
+.ac-badge--brand { background: var(--brand-tint); color: var(--brand-dark); }
+.ac-badge--success { background: var(--success-tint); color: var(--success); }
+.ac-badge--danger { background: var(--danger-tint); color: var(--danger); }
+.ac-badge--warning { background: var(--warning-tint); color: var(--warning); }
+.ac-badge--accent { background: var(--accent-tint); color: #0E7C8F; }
+
+.ac-stamp {
+  position: relative;
+  display: inline-block;
+  border: 2px dashed var(--brand);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--brand-dark);
+  background: var(--brand-tint);
+}
+
+/* ============================================================================
+   PRODUITS / MARKETPLACE
+   ============================================================================ */
+.ac-product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.ac-product-card {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.ac-product-card__photo {
+  aspect-ratio: 1 / 1;
+  background: var(--surface-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  color: var(--ink-faint);
+}
+.ac-product-card__photo img { width: 100%; height: 100%; object-fit: cover; }
+
+.ac-product-card__body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.ac-product-card__shop { font-size: 11px; color: var(--ink-faint); font-weight: 600; }
+.ac-product-card__name { font-size: 13.5px; font-weight: 600; line-height: 1.25; }
+.ac-product-card__price { font-family: var(--font-display); font-weight: 700; color: var(--brand-dark); margin-top: auto; }
+
+/* ============================================================================
+   LISTES (commandes, missions, kyc...)
+   ============================================================================ */
+.ac-list { display: flex; flex-direction: column; gap: 10px; }
+
+.ac-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+}
+
+.ac-row__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ac-row__title { font-weight: 600; font-size: 14.5px; }
+.ac-row__meta { font-size: 12.5px; color: var(--ink-soft); }
+
+.ac-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--ink-faint);
+}
+.ac-empty__icon { font-size: 34px; margin-bottom: 10px; }
+.ac-empty__title { font-weight: 600; color: var(--ink-soft); margin-bottom: 4px; }
+.ac-empty__text { font-size: 13px; }
+
+.ac-skeleton {
+  background: linear-gradient(90deg, var(--surface-alt) 25%, #fff 37%, var(--surface-alt) 63%);
+  background-size: 400% 100%;
+  animation: ac-shimmer 1.4s ease infinite;
+  border-radius: var(--radius-md);
+}
+@keyframes ac-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+/* ============================================================================
+   STATS ADMIN
+   ============================================================================ */
+.ac-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.ac-stat-card {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  border: 1px solid var(--line);
+}
+.ac-stat-card__value { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
+.ac-stat-card__label { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+.ac-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 16px;
+}
+.ac-tabs::-webkit-scrollbar { display: none; }
+.ac-tab {
+  flex: none;
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.ac-tab.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+/* ============================================================================
+   ÉCRAN D'AUTHENTIFICATION
+   ============================================================================ */
+.ac-auth {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 18px;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(246,139,0,0.16), transparent 45%),
+    radial-gradient(circle at 85% 90%, rgba(23,180,206,0.14), transparent 45%),
+    var(--ink);
+}
+
+.ac-auth__card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 30px 26px 26px;
+  box-shadow: var(--shadow-lg);
+}
+
+.ac-auth__logo { display: flex; justify-content: center; margin-bottom: 14px; }
+.ac-auth__logo img { width: 56px; border-radius: 14px; }
+.ac-auth__title { text-align: center; font-size: 21px; font-weight: 700; margin-bottom: 2px; }
+.ac-auth__subtitle { text-align: center; font-size: 13px; color: var(--ink-soft); margin-bottom: 22px; }
+
+.ac-auth__switch {
+  display: flex;
+  background: var(--surface-alt);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  margin-bottom: 20px;
+}
+.ac-auth__switch button {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 9px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 8px;
+  color: var(--ink-soft);
+}
+.ac-auth__switch button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+.ac-auth__link {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+
+.ac-alert {
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.ac-alert--danger { background: var(--danger-tint); color: var(--danger); }
+.ac-alert--success { background: var(--success-tint); color: var(--success); }
+.ac-alert--info { background: var(--accent-tint); color: #0E7C8F; }
+
+/* ============================================================================
+   PAIEMENT
+   ============================================================================ */
+.ac-provider-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ac-provider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  text-align: left;
+}
+.ac-provider.selected { border-color: var(--brand); background: var(--brand-tint); }
+.ac-provider__logo {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 11px; flex-shrink: 0;
+}
+.ac-provider__label { font-size: 13px; font-weight: 600; }
+
+/* ============================================================================
+   UPLOAD DE FICHIERS
+   ============================================================================ */
+.ac-uploader__preview {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  margin-bottom: 10px;
+  background: var(--surface-alt);
+}
+.ac-uploader__preview img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ============================================================================
+   BANNIÈRE D'INSTALLATION PWA
+   ============================================================================ */
+.ac-install-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  margin: 0 16px 12px;
+  box-shadow: var(--shadow-md);
+}
+.ac-install-banner img { border-radius: 9px; flex-shrink: 0; }
+.ac-install-banner__text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ac-install-banner__text strong { font-size: 13.5px; }
+.ac-install-banner__text span { font-size: 12px; color: rgba(255,255,255,0.72); line-height: 1.3; }
+.ac-install-banner__actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ac-install-banner__close { width: 30px; height: 30px; font-size: 13px; }
+
+@media (min-width: 900px) {
+  .ac-install-banner { margin: 0 auto 16px; max-width: 880px; }
+}
+
+/* ============================================================================
+   UTILITAIRES
+   ============================================================================ */
+.ac-flex { display: flex; }
+.ac-flex-col { display: flex; flex-direction: column; }
+.ac-items-center { align-items: center; }
+.ac-justify-between { justify-content: space-between; }
+.ac-gap-8 { gap: 8px; }
+.ac-gap-12 { gap: 12px; }
+.ac-mt-8 { margin-top: 8px; }
+.ac-mt-16 { margin-top: 16px; }
+.ac-mb-8 { margin-bottom: 8px; }
+.ac-text-center { text-align: center; }
+.ac-text-sm { font-size: 12.5px; color: var(--ink-soft); }
+.ac-text-faint { color: var(--ink-faint); }
+.ac-full-width { width: 100%; }
+
+@media (min-width: 720px) {
+  .ac-product-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ============================================================================
+   RESPONSIVE — tablette & desktop
+   Approche mobile-first : au-delà de 720px, le contenu s'élargit progressivement
+   et la barre d'onglets basse laisse place à un confort de lecture en colonnes.
+   ============================================================================ */
+@media (min-width: 640px) {
+  .ac-main { padding: 24px 24px 110px; }
+  .ac-auth__card { padding: 38px 34px 30px; }
+}
+
+@media (min-width: 900px) {
+  .ac-main { max-width: 880px; padding-top: 28px; }
+  .ac-header__bar { padding: 14px 28px; }
+  .ac-product-grid { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .ac-stat-grid { grid-template-columns: repeat(4, 1fr); }
+  .ac-tabbar {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    max-width: 460px;
+    bottom: 18px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-lg);
+    padding: 6px 10px;
+  }
+  .ac-main { padding-bottom: 110px; }
+  .ac-provider-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1200px) {
+  .ac-main { max-width: 1080px; }
+  .ac-product-grid { grid-template-columns: repeat(5, 1fr); }
+  .ac-stat-grid { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+}
+
+@media (max-width: 380px) {
+  .ac-main { padding: 14px 12px 96px; }
+  .ac-product-grid { gap: 8px; }
+  .ac-page-title { font-size: 19px; }
+}

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.DS_Store
+frontend/.env
+frontend/.env.local
+supabase/functions/.env
+supabase/.temp/

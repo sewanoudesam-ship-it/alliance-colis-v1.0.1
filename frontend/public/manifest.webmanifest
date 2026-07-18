@@ -1,0 +1,20 @@
+{
+  "name": "Alliance Colis",
+  "short_name": "Alliance Colis",
+  "description": "Marketplace et livraison locale en Afrique de l'Ouest — commandez, vendez, livrez.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#FAF6F0",
+  "theme_color": "#1C1730",
+  "orientation": "portrait",
+  "lang": "fr",
+  "categories": ["shopping", "business", "food"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
