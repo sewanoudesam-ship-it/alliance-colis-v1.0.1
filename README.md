@@ -44,6 +44,23 @@ npm install
 npm run dev
 ```
 
+#### ⚠️ Spécifique à GitHub Codespaces
+
+Deux pièges classiques donnent une **page blanche** dans Codespaces :
+
+1. **`.env` absent** — il est volontairement exclu du dépôt (`.gitignore`). Sans lui, l'app affiche
+   désormais un écran d'explication (plus une page blanche silencieuse) — suivez ses instructions.
+2. **Port non exposé correctement** — Vite doit écouter sur `0.0.0.0`, pas seulement `localhost`,
+   pour que le port-forwarding de Codespaces fonctionne. C'est déjà configuré dans
+   `frontend/vite.config.ts` (`server.host: true`). Une fois `npm run dev` lancé, ouvrez l'onglet
+   **PORTS** de Codespaces (à côté du terminal), vérifiez que le port `5173` est listé avec la
+   visibilité **Public** (clic droit → *Port Visibility* → *Public* si besoin), puis cliquez sur le
+   globe 🌐 pour ouvrir l'URL générée — n'utilisez pas `http://localhost:5173` directement dans le
+   navigateur si vous êtes sur l'interface web de Codespaces.
+
+Si la page reste blanche malgré tout, ouvrez la console du navigateur (F12) : une nouvelle
+protection (`ErrorBoundary`) affiche désormais le message d'erreur exact au lieu de rien afficher.
+
 ### 3. Paiement (Edge Functions SenePay)
 
 Voir **`supabase/functions/README.md`** — 5 minutes, clés sandbox déjà pré-remplies dans
