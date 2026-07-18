@@ -18,7 +18,7 @@ const TABS: { id: TabType; label: string; icon: string }[] = [
   { id: "tracking", label: "Suivi", icon: "📦" },
 ];
 
-export default function App() {
+export default function PublicApp() {
   const { user, initializing, logout } = useAuth();
   const { profile, loading: profileLoading, refresh: refreshProfile } = useProfile(user?.id);
 
@@ -33,6 +33,14 @@ export default function App() {
   useEffect(() => {
     if (user?.id) getCart(user.id).then((items) => setCartCount(items.length));
   }, [user?.id, tab]);
+
+  // Un compte admin n'a rien à faire sur le site public : on le renvoie
+  // directement vers l'espace d'administration, isolé sur sa propre route.
+  useEffect(() => {
+    if (profile?.role === "admin") {
+      window.location.href = "/admin";
+    }
+  }, [profile]);
 
   function refreshCart() {
     if (user?.id) getCart(user.id).then((items) => setCartCount(items.length));
@@ -67,6 +75,19 @@ export default function App() {
   }
 
   if (!user) return <AuthGate />;
+
+  if (profile?.role === "admin") {
+    return (
+      <div className="ac-app">
+        <div className="ac-main">
+          <div className="ac-empty">
+            <div className="ac-empty__icon">🔀</div>
+            <div className="ac-empty__title">Redirection vers l'espace administrateur…</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="ac-app">

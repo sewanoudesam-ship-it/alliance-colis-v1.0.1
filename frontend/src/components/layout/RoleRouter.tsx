@@ -5,7 +5,6 @@ import Cart from "../customer/Cart";
 import OrderTracking from "../customer/OrderTracking";
 import SellerDashboard from "../seller/SellerDashboard";
 import CourierDashboard from "../courier/CourierDashboard";
-import AdminDashboard from "../admin/AdminDashboard";
 
 type Props = {
   profile: Profile;
@@ -13,10 +12,14 @@ type Props = {
   onCartChanged: () => void;
 };
 
+/**
+ * Routeur du site PUBLIC (client/vendeur/coursier) uniquement. L'espace
+ * administrateur est une route séparée (/admin, voir AdminApp.tsx) : un compte
+ * admin ne doit jamais transiter par ce routeur (voir la redirection dans App.tsx).
+ */
 export default function RoleRouter({ profile, tab, onCartChanged }: Props) {
   const { role, id: userId } = profile;
 
-  if (role === "admin") return <AdminDashboard />;
   if (role === "seller") return <SellerDashboard userId={userId} />;
   if (role === "courier") return <CourierDashboard userId={userId} />;
 

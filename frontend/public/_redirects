@@ -1,0 +1,3 @@
+# Netlify + Cloudflare Pages/Workers : toute route sert index.html (SPA côté client).
+# main.tsx choisit ensuite PublicApp ou AdminApp selon window.location.pathname.
+/*    /index.html   200

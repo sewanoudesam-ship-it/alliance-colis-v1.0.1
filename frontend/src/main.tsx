@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import PublicApp from "./PublicApp";
+import AdminApp from "./AdminApp";
 import ErrorBoundary from "./ErrorBoundary";
 import { isSupabaseConfigured } from "./lib/supabase";
 import "./index.css";
@@ -45,10 +46,12 @@ cp .env.example .env
   );
 }
 
+const isAdminRoute = window.location.pathname.startsWith("/admin");
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary>
-      {isSupabaseConfigured ? <App /> : <MissingEnvScreen />}
+      {isSupabaseConfigured ? (isAdminRoute ? <AdminApp /> : <PublicApp />) : <MissingEnvScreen />}
     </ErrorBoundary>
   </React.StrictMode>
 );

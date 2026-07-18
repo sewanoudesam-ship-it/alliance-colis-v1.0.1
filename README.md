@@ -2,12 +2,34 @@
 
 Marketplace + livraison locale CEDEAO/UEMOA. React + TypeScript + Vite + Supabase, paiement mobile money réel (sandbox) via SenePay.
 
+## 🔐 Route publique vs route admin
+
+Deux applications React totalement séparées, choisies au chargement selon l'URL (`src/main.tsx`) :
+
+| Route | App | Login | Contenu |
+| --- | --- | --- | --- |
+| `/` (et tout le reste) | `PublicApp.tsx` | Connexion + inscription client | Client, vendeur, coursier |
+| `/admin` | `AdminApp.tsx` | Connexion seule, **aucune inscription** | Tableau de bord admin uniquement |
+
+- Un compte `role = 'admin'` connecté sur `/` est **automatiquement redirigé** vers `/admin`.
+- Un compte non-admin qui accède à `/admin` voit un écran **"Accès refusé"** — jamais le tableau de bord.
+- `robots.txt` exclut `/admin` de l'indexation.
+- Comme c'est une SPA (une seule page HTML), l'hébergeur doit rediriger **toutes** les routes vers
+  `index.html` : déjà configuré pour Netlify/Cloudflare (`public/_redirects`) et Vercel
+  (`vercel.json`). Si vous hébergez ailleurs, reproduisez cette règle.
+- Pour une séparation encore plus stricte (recommandé à terme) : pointez un sous-domaine dédié
+  (`admin.alliancecolis.com`) vers le même build — `main.tsx` détecte aussi bien un chemin `/admin`
+  qu'un hostname dédié si vous adaptez la condition `isAdminRoute`.
+
 ## 🗂 Structure du projet
 
 ```
 alliance-colis/
 ├── frontend/                  # Application React (PWA)
 │   ├── src/
+│   │   ├── main.tsx            # Choisit PublicApp ou AdminApp selon l'URL
+│   │   ├── PublicApp.tsx        # Route "/" — client/vendeur/coursier
+│   │   ├── AdminApp.tsx         # Route "/admin" — administration (login séparé)
 │   │   ├── components/        # customer/ seller/ courier/ admin/ kyc/ auth/ layout/ tracking/
 │   │   ├── services/          # Couche unique d'accès aux données (Supabase)
 │   │   ├── hooks/              # useAuth, useProfile
