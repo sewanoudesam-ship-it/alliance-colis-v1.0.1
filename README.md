@@ -100,7 +100,7 @@ update profiles set role = 'admin' where email = 'vous@exemple.com';
 ## ☁️ Déploiement — GitHub → Cloudflare Workers (automatique, un seul déploiement)
 
 Méthode retenue : **GitHub Actions** build et déploie automatiquement à chaque `git push` sur
-`main`. C'est la méthode la plus fiable — pas de commande à taper à la main, pas d'oubli possible,
+`master`. C'est la méthode la plus fiable — pas de commande à taper à la main, pas d'oubli possible,
 reproductible à chaque fois. Suis ces étapes **dans l'ordre exact**, rien à sauter.
 
 ### Étape 1 — Pousser le code sur GitHub
@@ -109,7 +109,7 @@ reproductible à chaque fois. Suis ces étapes **dans l'ordre exact**, rien à s
 git clone alliance-colis.bundle alliance-colis
 cd alliance-colis
 git remote add origin https://github.com/TON-USERNAME/alliance-colis.git
-git push -u origin main
+git push -u origin master
 ```
 
 ### Étape 2 — Créer le token API Cloudflare
@@ -165,7 +165,7 @@ d'échec (❌ rouge), clique dessus : le message d'erreur exact s'affiche dans l
 
 - `https://alliancecolis.com` → site public (client/vendeur/coursier)
 - `https://alliancecolis.com/admin` → espace administrateur (login séparé)
-- Chaque futur `git push` sur `main` redéploie automatiquement les deux en une seule fois — c'est
+- Chaque futur `git push` sur `master` redéploie automatiquement les deux en une seule fois — c'est
   bien **un seul déploiement**, les deux routes vivent dans le même Worker.
 
 ### Pourquoi cette méthode "sans échouer"

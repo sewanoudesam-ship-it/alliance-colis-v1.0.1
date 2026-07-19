@@ -2,7 +2,7 @@ name: Déploiement Cloudflare Workers
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "frontend/**"
       - ".github/workflows/deploy.yml"
