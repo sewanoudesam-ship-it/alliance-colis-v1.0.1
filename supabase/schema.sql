@@ -228,13 +228,44 @@ returns boolean language sql stable as $$
   );
 $$;
 
--- PROFILES : chacun voit/ømodifie le sien, l'admin voit tout
+-- PROFILES : chacun voit/modifie le sien, l'admin voit tout
 create policy "profiles_select_own_or_admin" on profiles
   for select using (id = auth.uid() or current_role_is('admin'));
 create policy "profiles_update_own_or_admin" on profiles
   for update using (id = auth.uid() or current_role_is('admin'));
 create policy "profiles_insert_self" on profiles
   for insert with check (id = auth.uid());
+
+-- ============================================================================
+-- TRIGGER : crée automatiquement la ligne "profiles" à l'inscription, côté
+-- base (security definer), indépendamment de l'état de session côté client.
+-- Corrige un blocage RLS classique : quand la confirmation email est active,
+-- signUp() ne renvoie pas de session immédiate, donc un insert "profiles" fait
+-- depuis le frontend juste après échoue (auth.uid() est encore null à ce
+-- moment-là). Ce trigger élimine complètement cette dépendance au timing.
+-- ============================================================================
+create or replace function handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, full_name, email, phone, country, role, verified)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    new.email,
+    coalesce(new.raw_user_meta_data->>'phone', ''),
+    coalesce(new.raw_user_meta_data->>'country', ''),
+    'customer',
+    false
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function handle_new_user();
 
 -- KYC : le demandeur voit sa demande, l'admin voit tout
 create policy "kyc_select_own_or_admin" on kyc_documents

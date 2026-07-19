@@ -16,26 +16,6 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   return data;
 }
 
-export async function createProfile(profile: {
-  id: string;
-  full_name: string;
-  email: string;
-  phone: string;
-  country: string;
-}): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase.from("profiles").insert({
-    ...profile,
-    verified: false,
-    role: "customer",
-  });
-
-  if (error) {
-    console.error("createProfile:", error.message);
-    return { success: false, error: error.message };
-  }
-  return { success: true };
-}
-
 /** Le client demande à devenir vendeur ou coursier (rôle passe en *_pending). */
 export async function requestRoleUpgrade(
   userId: string,

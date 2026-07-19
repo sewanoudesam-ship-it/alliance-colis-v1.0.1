@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { createProfile } from "../../services/profileService";
 import { COUNTRIES } from "../../lib/constants";
 import logo from "../../assets/logo.png";
 
@@ -63,31 +62,20 @@ export default function AuthGate() {
     const selected = COUNTRIES.find((c) => c.code === country);
     const fullPhone = `${selected?.prefix ?? ""}${phone}`;
 
-    const { data, error } = await supabase.auth.signUp({
+    // La ligne "profiles" est créée automatiquement côté base par le trigger
+    // SQL handle_new_user() (voir supabase/schema.sql), à partir des métadonnées
+    // passées ici — indépendamment de l'état de session (fonctionne même quand
+    // la confirmation email est active et qu'aucune session n'existe encore).
+    const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, phone: fullPhone, country, role: "customer" } },
+      options: { data: { full_name: fullName, phone: fullPhone, country } },
     });
 
     if (error) {
       setLoading(false);
       setMessage({ type: "danger", text: error.message });
       return;
-    }
-
-    if (data.user) {
-      const result = await createProfile({
-        id: data.user.id,
-        full_name: fullName,
-        email,
-        phone: fullPhone,
-        country,
-      });
-      if (!result.success) {
-        setLoading(false);
-        setMessage({ type: "danger", text: result.error ?? "Erreur lors de la création du profil." });
-        return;
-      }
     }
 
     setLoading(false);
