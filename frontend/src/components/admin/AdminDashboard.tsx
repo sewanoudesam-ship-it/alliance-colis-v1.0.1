@@ -8,9 +8,11 @@ import { listAllActiveDeliveries } from "../../services/deliveryService";
 import { getPlatformAccount } from "../../services/walletService";
 import { formatFCFA, formatDateShort } from "../../utils/format";
 import { ORDER_STATUS_LABELS, DELIVERY_STATUS_LABELS } from "../../lib/constants";
+import Toast from "../shared/Toast";
 import type { KycDocument, Shop, Product, Profile, Order, Delivery, PlatformAccount } from "../../types";
 
 type Tab = "overview" | "kyc" | "shops" | "products" | "users" | "deliveries" | "orders";
+type ToastState = { type: "success" | "danger"; text: string } | null;
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("overview");
@@ -24,6 +26,16 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectComment, setRejectComment] = useState("");
+  const [toast, setToast] = useState<ToastState>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  function flashSuccess(text: string) {
+    setToast({ type: "success", text });
+    setTimeout(() => setToast(null), 4000);
+  }
+  function flashError(text: string) {
+    setToast({ type: "danger", text });
+  }
 
   async function refresh() {
     setLoading(true);
@@ -45,10 +57,74 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  async function handleApproveKyc(doc: KycDocument) {
+    setBusyId(doc.id);
+    const result = await approveKyc(doc);
+    setBusyId(null);
+    if (!result.success) {
+      flashError(result.error ?? "Échec de la validation KYC.");
+      return;
+    }
+    flashSuccess(`${doc.full_name} validé(e) avec succès.`);
+    refresh();
+  }
+
+  async function handleRejectKyc(doc: KycDocument) {
+    setBusyId(doc.id);
+    const result = await rejectKyc(doc, rejectComment);
+    setBusyId(null);
+    setRejectingId(null);
+    setRejectComment("");
+    if (!result.success) {
+      flashError(result.error ?? "Échec du refus.");
+      return;
+    }
+    flashSuccess(`Demande de ${doc.full_name} refusée.`);
+    refresh();
+  }
+
+  async function handleShopStatus(shop: Shop, status: Shop["status"]) {
+    setBusyId(shop.id);
+    const ok = await setShopStatus(shop.id, status);
+    setBusyId(null);
+    if (!ok) {
+      flashError(`Échec de la mise à jour du statut de "${shop.name}". Réessayez.`);
+      return;
+    }
+    flashSuccess(`Statut de "${shop.name}" mis à jour.`);
+    refresh();
+  }
+
+  async function handleApproveProduct(product: Product) {
+    setBusyId(product.id);
+    const ok = await approveProduct(product.id);
+    setBusyId(null);
+    if (!ok) {
+      flashError(`Échec de la validation de "${product.name}". Réessayez.`);
+      return;
+    }
+    flashSuccess(`"${product.name}" validé et visible sur la marketplace.`);
+    refresh();
+  }
+
+  async function handleSetRole(profile: Profile, role: Profile["role"]) {
+    setBusyId(profile.id);
+    const ok = await adminSetRole(profile.id, role);
+    setBusyId(null);
+    if (!ok) {
+      flashError(`Échec de la mise à jour du rôle de "${profile.full_name}".`);
+      return;
+    }
+    flashSuccess(`Rôle de "${profile.full_name}" mis à jour.`);
+    refresh();
+  }
+
   return (
     <div>
       <h1 className="ac-page-title">Administration</h1>
       <p className="ac-page-subtitle">Gestion globale de la plateforme Alliance Colis.</p>
+
+      <Toast toast={toast} />
 
       <div className="ac-tabs">
         <button className={`ac-tab ${tab === "overview" ? "active" : ""}`} onClick={() => setTab("overview")}>Vue d'ensemble</button>
@@ -106,13 +182,17 @@ export default function AdminDashboard() {
                   <textarea className="ac-input ac-mb-8" rows={2} placeholder="Motif du refus" value={rejectComment} onChange={(e) => setRejectComment(e.target.value)} />
                   <div className="ac-flex ac-gap-8">
                     <button className="ac-btn ac-btn--outline" onClick={() => setRejectingId(null)}>Annuler</button>
-                    <button className="ac-btn ac-btn--danger" onClick={async () => { await rejectKyc(doc, rejectComment); setRejectingId(null); setRejectComment(""); refresh(); }}>Confirmer le refus</button>
+                    <button className="ac-btn ac-btn--danger" disabled={busyId === doc.id} onClick={() => handleRejectKyc(doc)}>
+                      {busyId === doc.id ? "Envoi…" : "Confirmer le refus"}
+                    </button>
                   </div>
                 </div>
               ) : (
                 <div className="ac-flex ac-gap-8 ac-mt-16">
-                  <button className="ac-btn ac-btn--outline" onClick={() => setRejectingId(doc.id)}>Refuser</button>
-                  <button className="ac-btn ac-btn--primary" onClick={async () => { await approveKyc(doc); refresh(); }}>Valider</button>
+                  <button className="ac-btn ac-btn--outline" disabled={busyId === doc.id} onClick={() => setRejectingId(doc.id)}>Refuser</button>
+                  <button className="ac-btn ac-btn--primary" disabled={busyId === doc.id} onClick={() => handleApproveKyc(doc)}>
+                    {busyId === doc.id ? "Validation…" : "Valider"}
+                  </button>
                 </div>
               )}
             </div>
@@ -128,7 +208,12 @@ export default function AdminDashboard() {
                 <span className="ac-row__title">{s.name}</span>
                 <span className="ac-row__meta">{formatDateShort(s.created_at)}</span>
               </div>
-              <select className="ac-select" value={s.status} onChange={async (e) => { await setShopStatus(s.id, e.target.value as Shop["status"]); refresh(); }}>
+              <select
+                className="ac-select"
+                value={s.status}
+                disabled={busyId === s.id}
+                onChange={(e) => handleShopStatus(s, e.target.value as Shop["status"])}
+              >
                 <option value="pending">En attente</option>
                 <option value="approved">Validée</option>
                 <option value="blocked">Bloquée</option>
@@ -147,7 +232,9 @@ export default function AdminDashboard() {
                 <span className="ac-row__title">{p.name}</span>
                 <span className="ac-row__meta">{formatFCFA(p.price)} · {p.shops?.name}</span>
               </div>
-              <button className="ac-btn ac-btn--primary ac-btn--sm" onClick={async () => { await approveProduct(p.id); refresh(); }}>Valider</button>
+              <button className="ac-btn ac-btn--primary ac-btn--sm" disabled={busyId === p.id} onClick={() => handleApproveProduct(p)}>
+                {busyId === p.id ? "Validation…" : "Valider"}
+              </button>
             </div>
           ))}
         </div>
@@ -161,7 +248,12 @@ export default function AdminDashboard() {
                 <span className="ac-row__title">{p.full_name}</span>
                 <span className="ac-row__meta">{p.email} · {p.country}</span>
               </div>
-              <select className="ac-select" value={p.role} onChange={async (e) => { await adminSetRole(p.id, e.target.value as Profile["role"]); refresh(); }}>
+              <select
+                className="ac-select"
+                value={p.role}
+                disabled={busyId === p.id}
+                onChange={(e) => handleSetRole(p, e.target.value as Profile["role"])}
+              >
                 <option value="customer">Client</option>
                 <option value="seller_pending">Vendeur (en attente)</option>
                 <option value="seller">Vendeur</option>

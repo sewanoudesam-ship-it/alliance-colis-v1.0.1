@@ -17,12 +17,13 @@
   --ink-faint: #8B85A0;
   --line: #E7E0D3;
 
-  --brand: #F68B00;
-  --brand-dark: #D97400;
-  --brand-tint: #FFF1DD;
+  --brand: #E4590F;
+  --brand-dark: #B8480C;
+  --brand-tint: #FDEEE3;
 
-  --accent: #17B4CE;
-  --accent-tint: #E4F8FB;
+  --accent: #0A56A8;
+  --accent-dark: #073F7D;
+  --accent-tint: #E6EEF8;
 
   --success: #1E9E63;
   --success-tint: #E4F6EC;
@@ -362,8 +363,12 @@ a { color: inherit; }
 .ac-btn:active { transform: scale(0.98); }
 .ac-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-.ac-btn--primary { background: var(--brand); color: #fff; box-shadow: 0 6px 16px rgba(246,139,0,0.28); }
-.ac-btn--primary:hover:not(:disabled) { background: var(--brand-dark); }
+.ac-btn--primary {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(228,89,15,0.32);
+}
+.ac-btn--primary:hover:not(:disabled) { box-shadow: 0 8px 22px rgba(228,89,15,0.4); transform: translateY(-1px); }
 
 .ac-btn--dark { background: var(--ink); color: #fff; }
 
@@ -421,7 +426,7 @@ a { color: inherit; }
 .ac-badge--success { background: var(--success-tint); color: var(--success); }
 .ac-badge--danger { background: var(--danger-tint); color: var(--danger); }
 .ac-badge--warning { background: var(--warning-tint); color: var(--warning); }
-.ac-badge--accent { background: var(--accent-tint); color: #0E7C8F; }
+.ac-badge--accent { background: var(--accent-tint); color: var(--accent-dark); }
 
 .ac-stamp {
   position: relative;
@@ -453,7 +458,10 @@ a { color: inherit; }
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
+.ac-product-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.ac-product-card:hover .ac-product-card__photo img { transform: scale(1.05); }
 
 .ac-product-card__photo {
   aspect-ratio: 1 / 1;
@@ -464,7 +472,7 @@ a { color: inherit; }
   font-size: 30px;
   color: var(--ink-faint);
 }
-.ac-product-card__photo img { width: 100%; height: 100%; object-fit: cover; }
+.ac-product-card__photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.35s ease; }
 
 .ac-product-card__body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .ac-product-card__shop { font-size: 11px; color: var(--ink-faint); font-weight: 600; }
@@ -521,7 +529,11 @@ a { color: inherit; }
   border-radius: var(--radius-md);
   padding: 16px;
   border: 1px solid var(--line);
+  border-top: 3px solid var(--brand);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
+.ac-stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.ac-stat-card:nth-child(2n) { border-top-color: var(--accent); }
 .ac-stat-card__value { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
 .ac-stat-card__label { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
 
@@ -556,8 +568,8 @@ a { color: inherit; }
   justify-content: center;
   padding: 24px 18px;
   background:
-    radial-gradient(circle at 15% 10%, rgba(246,139,0,0.16), transparent 45%),
-    radial-gradient(circle at 85% 90%, rgba(23,180,206,0.14), transparent 45%),
+    radial-gradient(circle at 15% 10%, rgba(228,89,15,0.16), transparent 45%),
+    radial-gradient(circle at 85% 90%, rgba(10,86,168,0.16), transparent 45%),
     var(--ink);
 }
 
@@ -610,7 +622,7 @@ a { color: inherit; }
 }
 .ac-alert--danger { background: var(--danger-tint); color: var(--danger); }
 .ac-alert--success { background: var(--success-tint); color: var(--success); }
-.ac-alert--info { background: var(--accent-tint); color: #0E7C8F; }
+.ac-alert--info { background: var(--accent-tint); color: var(--accent-dark); }
 
 /* ============================================================================
    PAIEMENT

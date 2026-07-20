@@ -221,8 +221,17 @@ alter table wallets enable row level security;
 alter table wallet_transactions enable row level security;
 
 -- Fonction utilitaire : rôle de l'utilisateur courant
+-- SECURITY DEFINER est indispensable ici : sans lui, la requête interne
+-- reste soumise à la RLS de "profiles", qui rappelle cette fonction pour
+-- chaque ligne évaluée -> récursion infinie -> "stack depth limit exceeded".
+-- (bug réel rencontré en production le 2026-07-18, corrigé ce jour-là)
 create or replace function current_role_is(target user_role)
-returns boolean language sql stable as $$
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
   select exists (
     select 1 from profiles where id = auth.uid() and role = target
   );

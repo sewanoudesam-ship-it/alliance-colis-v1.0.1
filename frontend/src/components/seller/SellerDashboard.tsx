@@ -5,12 +5,14 @@ import { listShopOrders, updateOrderStatus } from "../../services/orderService";
 import { getWallet, listWalletTransactions, currentSellerCommissionRate, listPendingPayouts } from "../../services/walletService";
 import { formatFCFA, formatDateShort } from "../../utils/format";
 import { ORDER_STATUS_LABELS } from "../../lib/constants";
+import Toast from "../shared/Toast";
 import type { Shop, Product, Order, Wallet, ScheduledPayout } from "../../types";
 import CreateShop from "./CreateShop";
 import AddProduct from "./AddProduct";
 
 type Props = { userId: string };
 type Tab = "shop" | "products" | "orders" | "wallet";
+type ToastState = { type: "success" | "danger"; text: string } | null;
 
 export default function SellerDashboard({ userId }: Props) {
   const [shop, setShop] = useState<Shop | null | undefined>(undefined);
@@ -21,6 +23,16 @@ export default function SellerDashboard({ userId }: Props) {
   const [transactions, setTransactions] = useState<Awaited<ReturnType<typeof listWalletTransactions>>>([]);
   const [pendingPayouts, setPendingPayouts] = useState<ScheduledPayout[]>([]);
   const [addingProduct, setAddingProduct] = useState(false);
+  const [toast, setToast] = useState<ToastState>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  function flashSuccess(text: string) {
+    setToast({ type: "success", text });
+    setTimeout(() => setToast(null), 4000);
+  }
+  function flashError(text: string) {
+    setToast({ type: "danger", text });
+  }
 
   async function loadShop() {
     setShop(await getShopByOwner(userId));
@@ -28,6 +40,23 @@ export default function SellerDashboard({ userId }: Props) {
 
   useEffect(() => {
     loadShop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // Si un administrateur valide la boutique pendant que ce tableau de bord est
+  // déjà ouvert, on rafraîchit automatiquement dès que l'onglet redevient actif
+  // (au lieu d'afficher un statut périmé jusqu'au prochain rechargement manuel).
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === "visible") loadShop();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   useEffect(() => {
@@ -43,6 +72,45 @@ export default function SellerDashboard({ userId }: Props) {
     }
   }, [tab, shop, userId]);
 
+  async function handleToggleProduct(product: Product) {
+    if (!shop) return;
+    setBusyId(product.id);
+    const ok = await toggleProductActive(product.id, !product.active);
+    setBusyId(null);
+    if (!ok) {
+      flashError(`Échec de la mise à jour de "${product.name}". Réessayez.`);
+      return;
+    }
+    flashSuccess(`"${product.name}" ${!product.active ? "activé" : "désactivé"}.`);
+    listShopProducts(shop.id).then(setProducts);
+  }
+
+  async function handleDeleteProduct(product: Product) {
+    if (!shop) return;
+    setBusyId(product.id);
+    const ok = await deleteProduct(product.id);
+    setBusyId(null);
+    if (!ok) {
+      flashError(`Échec de la suppression de "${product.name}". Réessayez.`);
+      return;
+    }
+    flashSuccess(`"${product.name}" supprimé.`);
+    listShopProducts(shop.id).then(setProducts);
+  }
+
+  async function handleOrderStatus(order: Order, status: Order["status"]) {
+    if (!shop) return;
+    setBusyId(order.id);
+    const ok = await updateOrderStatus(order.id, status);
+    setBusyId(null);
+    if (!ok) {
+      flashError(`Échec de la mise à jour de la commande ${order.tracking_code}.`);
+      return;
+    }
+    flashSuccess(`Commande ${order.tracking_code} mise à jour.`);
+    listShopOrders(shop.id).then(setOrders);
+  }
+
   if (shop === undefined) return <div className="ac-skeleton" style={{ height: 200 }} />;
 
   if (shop === null) {
@@ -52,12 +120,17 @@ export default function SellerDashboard({ userId }: Props) {
   return (
     <div>
       <h1 className="ac-page-title">{shop.name}</h1>
-      <p className="ac-page-subtitle">
+      <p className="ac-page-subtitle ac-flex ac-items-center ac-gap-8">
         Statut boutique :{" "}
         <span className={`ac-badge ${shop.status === "approved" ? "ac-badge--success" : shop.status === "blocked" ? "ac-badge--danger" : "ac-badge--warning"}`}>
           {shop.status === "approved" ? "Validée" : shop.status === "blocked" ? "Bloquée" : "En attente de validation"}
         </span>
+        <button className="ac-btn ac-btn--ghost" style={{ padding: "2px 8px", fontSize: 12 }} onClick={loadShop} title="Actualiser le statut">
+          ↻ Actualiser
+        </button>
       </p>
+
+      <Toast toast={toast} />
 
       <div className="ac-tabs">
         <button className={`ac-tab ${tab === "products" ? "active" : ""}`} onClick={() => setTab("products")}>Produits</button>
@@ -72,7 +145,7 @@ export default function SellerDashboard({ userId }: Props) {
               shopId={shop.id}
               userId={userId}
               onCancel={() => setAddingProduct(false)}
-              onCreated={() => { setAddingProduct(false); listShopProducts(shop.id).then(setProducts); }}
+              onCreated={() => { setAddingProduct(false); flashSuccess("Produit ajouté avec succès."); listShopProducts(shop.id).then(setProducts); }}
             />
           ) : (
             <>
@@ -97,10 +170,10 @@ export default function SellerDashboard({ userId }: Props) {
                       </span>
                     </div>
                     <div className="ac-flex ac-gap-8">
-                      <button className="ac-btn ac-btn--outline ac-btn--sm" onClick={async () => { await toggleProductActive(p.id, !p.active); listShopProducts(shop.id).then(setProducts); }}>
+                      <button className="ac-btn ac-btn--outline ac-btn--sm" disabled={busyId === p.id} onClick={() => handleToggleProduct(p)}>
                         {p.active ? "Désactiver" : "Activer"}
                       </button>
-                      <button className="ac-btn ac-btn--ghost" onClick={async () => { await deleteProduct(p.id); listShopProducts(shop.id).then(setProducts); }}>🗑️</button>
+                      <button className="ac-btn ac-btn--ghost" disabled={busyId === p.id} onClick={() => handleDeleteProduct(p)}>🗑️</button>
                     </div>
                   </div>
                 ))}
@@ -124,7 +197,8 @@ export default function SellerDashboard({ userId }: Props) {
               <select
                 className="ac-select"
                 value={o.status}
-                onChange={async (e) => { await updateOrderStatus(o.id, e.target.value as Order["status"]); listShopOrders(shop.id).then(setOrders); }}
+                disabled={busyId === o.id}
+                onChange={(e) => handleOrderStatus(o, e.target.value as Order["status"])}
               >
                 {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
