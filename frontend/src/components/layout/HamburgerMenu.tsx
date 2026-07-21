@@ -10,9 +10,11 @@ type Props = {
   onBecomeSeller: () => void;
   onBecomeCourier: () => void;
   onProfileUpdated: () => void;
+  onOpenTerms: () => void;
+  onOpenPrivacy: () => void;
 };
 
-export default function HamburgerMenu({ profile, onClose, onLogout, onBecomeSeller, onBecomeCourier, onProfileUpdated }: Props) {
+export default function HamburgerMenu({ profile, onClose, onLogout, onBecomeSeller, onBecomeCourier, onProfileUpdated, onOpenTerms, onOpenPrivacy }: Props) {
   const [editingAvatar, setEditingAvatar] = useState(false);
 
   const initials = profile.full_name
@@ -69,6 +71,11 @@ export default function HamburgerMenu({ profile, onClose, onLogout, onBecomeSell
             <button className="ac-drawer__item" onClick={onBecomeCourier}>🛵 Devenir coursier</button>
           </>
         )}
+
+        <p className="ac-drawer__section-label">Informations légales</p>
+        <button className="ac-drawer__item" onClick={onOpenTerms}>📄 Conditions d'utilisation</button>
+        <button className="ac-drawer__item" onClick={onOpenPrivacy}>🔒 Politique de confidentialité</button>
+        <a className="ac-drawer__item" href="mailto:contact@alliancecolis.com">✉️ Contacter le service client</a>
 
         <p className="ac-drawer__section-label">Compte</p>
         <button className="ac-drawer__item ac-drawer__item--danger" onClick={onLogout}>🚪 Déconnexion</button>

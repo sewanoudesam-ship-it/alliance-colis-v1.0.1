@@ -1,43 +1,43 @@
 import { useEffect, useState } from "react";
-import { listCustomerOrders, getOrderByTrackingCode } from "../../services/orderService";
-import { getDeliveryByOrder } from "../../services/deliveryService";
+import { listCustomerBatches, getBatchByTrackingCode } from "../../services/orderService";
+import { getDeliveryByBatch } from "../../services/deliveryService";
 import { formatFCFA, formatDateShort } from "../../utils/format";
 import { ORDER_STATUS_LABELS, DELIVERY_STATUS_LABELS } from "../../lib/constants";
-import type { Order, Delivery } from "../../types";
+import type { OrderBatch, Delivery } from "../../types";
 import LiveTracking from "../tracking/LiveTracking";
 
 type Props = { userId: string };
 
 export default function OrderTracking({ userId }: Props) {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [batches, setBatches] = useState<OrderBatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Order | null>(null);
+  const [selected, setSelected] = useState<OrderBatch | null>(null);
   const [delivery, setDelivery] = useState<Delivery | null | undefined>(undefined);
   const [code, setCode] = useState("");
   const [searchError, setSearchError] = useState<string | null>(null);
 
   useEffect(() => {
-    listCustomerOrders(userId).then((data) => {
-      setOrders(data);
+    listCustomerBatches(userId).then((data) => {
+      setBatches(data);
       setLoading(false);
     });
   }, [userId]);
 
-  async function openOrder(order: Order) {
-    setSelected(order);
+  async function openBatch(batch: OrderBatch) {
+    setSelected(batch);
     setDelivery(undefined);
-    setDelivery(await getDeliveryByOrder(order.id));
+    setDelivery(await getDeliveryByBatch(batch.id));
   }
 
   async function handleSearchCode() {
     setSearchError(null);
     if (!code.trim()) return;
-    const order = await getOrderByTrackingCode(code.trim().toUpperCase());
-    if (!order) {
+    const batch = await getBatchByTrackingCode(code.trim().toUpperCase());
+    if (!batch) {
       setSearchError("Aucune commande trouvée pour ce code.");
       return;
     }
-    openOrder(order);
+    openBatch(batch);
   }
 
   if (selected) {
@@ -54,6 +54,13 @@ export default function OrderTracking({ userId }: Props) {
             <span className="ac-text-sm">Adresse</span>
             <span>{selected.delivery_address}</span>
           </div>
+          {selected.location_source !== "gps" && (
+            <div className="ac-alert ac-alert--info ac-mb-8">
+              {selected.location_source === "address"
+                ? "Distance en cours de confirmation par notre équipe — le tarif de livraison pourra être ajusté."
+                : "Distance confirmée manuellement par notre équipe."}
+            </div>
+          )}
           <div className="ac-flex ac-justify-between ac-mb-8">
             <span className="ac-text-sm">Total</span>
             <strong>{formatFCFA(selected.total_price)}</strong>
@@ -89,7 +96,7 @@ export default function OrderTracking({ userId }: Props) {
 
       <div className="ac-card ac-card--pad ac-mb-8">
         <div className="ac-input-group">
-          <input className="ac-input" placeholder="Ex : AC-7K3F9Q" value={code} onChange={(e) => setCode(e.target.value)} />
+          <input className="ac-input" placeholder="Ex : AC-00000000001" value={code} onChange={(e) => setCode(e.target.value)} />
           <button className="ac-btn ac-btn--dark" style={{ width: "auto" }} onClick={handleSearchCode}>Suivre</button>
         </div>
         {searchError && <p className="ac-text-sm" style={{ color: "var(--danger)" }}>{searchError}</p>}
@@ -97,7 +104,7 @@ export default function OrderTracking({ userId }: Props) {
 
       {loading && <div className="ac-skeleton" style={{ height: 120 }} />}
 
-      {!loading && orders.length === 0 && (
+      {!loading && batches.length === 0 && (
         <div className="ac-empty">
           <div className="ac-empty__icon">📦</div>
           <div className="ac-empty__title">Aucune commande pour le moment</div>
@@ -105,13 +112,13 @@ export default function OrderTracking({ userId }: Props) {
       )}
 
       <div className="ac-list">
-        {orders.map((o) => (
-          <button key={o.id} className="ac-row" style={{ width: "100%", border: "1px solid var(--line)" }} onClick={() => openOrder(o)}>
+        {batches.map((b) => (
+          <button key={b.id} className="ac-row" style={{ width: "100%", border: "1px solid var(--line)" }} onClick={() => openBatch(b)}>
             <div className="ac-row__main">
-              <span className="ac-row__title">{o.tracking_code}</span>
-              <span className="ac-row__meta">{formatDateShort(o.created_at)} · {formatFCFA(o.total_price)}</span>
+              <span className="ac-row__title">{b.tracking_code}</span>
+              <span className="ac-row__meta">{formatDateShort(b.created_at)} · {formatFCFA(b.total_price)}</span>
             </div>
-            <span className="ac-badge ac-badge--neutral">{ORDER_STATUS_LABELS[o.status]}</span>
+            <span className="ac-badge ac-badge--neutral">{ORDER_STATUS_LABELS[b.status]}</span>
           </button>
         ))}
       </div>

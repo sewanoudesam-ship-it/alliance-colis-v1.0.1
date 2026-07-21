@@ -2,6 +2,27 @@
 
 Marketplace + livraison locale CEDEAO/UEMOA. React + TypeScript + Vite + Supabase, paiement mobile money réel (sandbox) via SenePay.
 
+## 🆕 v1.0.1 — Logistique par entrepôt + conformité juridique
+
+**Logistique par entrepôt central (changement majeur) :**
+- Nouvelle table `warehouses` : toute livraison part désormais de l'entrepôt Alliance Colis, plus
+  de la boutique. Un panier multi-boutiques ne génère plus qu'**une seule livraison facturée**.
+- Nouvelle table `order_batches` : c'est elle qui porte la tarification, la géolocalisation, le code
+  de suivi et le paiement. `orders` redevient une simple ligne d'exécution par boutique (pour la
+  préparation et la commission vendeur).
+- **GPS non-bloquant** : si le client ne partage pas sa position, la commande part quand même avec
+  l'adresse saisie à la main (`location_source = 'address'`). Un admin confirme ensuite la distance
+  réelle depuis l'onglet **Commandes** (`location_source` passe à `'manual_confirmation'`).
+- ⚠️ **Coordonnées d'entrepôt à corriger** : un placeholder (Plateau, Abidjan) a été inséré. Va dans
+  `/admin` → onglet **Entrepôt** pour saisir les vraies coordonnées avant la mise en production réelle.
+
+**Conformité juridique :**
+- Case à cocher obligatoire à l'inscription (CGU + politique de confidentialité), acceptation
+  horodatée et versionnée en base (`profiles.terms_accepted`, `terms_accepted_at`, `terms_version`).
+- Pages `Conditions d'utilisation` et `Politique de confidentialité` — contenu centralisé et
+  modifiable dans `src/lib/legalContent.ts`, sans toucher au reste de l'app.
+- Footer global (liens légaux + `mailto:contact@alliancecolis.com`) sur toutes les pages publiques.
+
 ## 🔐 Route publique vs route admin
 
 Deux applications React totalement séparées, choisies au chargement selon l'URL (`src/main.tsx`) :

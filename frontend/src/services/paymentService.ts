@@ -10,16 +10,16 @@ import { supabase } from "../lib/supabase";
  * l'Edge Function Supabase `senepay-checkout` / `senepay-webhook`
  * (voir supabase/functions/README.md).
  *
- * Flux :
- *  1. initiateSenepayCheckout() appelle l'Edge Function avec les IDs de commande.
+ * Flux (v1.0.1 — un paiement par LOT, plus par commande individuelle) :
+ *  1. initiateSenepayCheckout() appelle l'Edge Function avec l'ID du lot.
  *  2. L'Edge Function crée la session SenePay et renvoie `checkoutUrl`.
  *  3. Le client est redirigé vers `checkoutUrl` (page SenePay).
  *  4. Après paiement, SenePay redirige vers `returnUrl` ET envoie un webhook
  *     signé à l'Edge Function `senepay-webhook`, qui est la source de vérité :
- *     elle marque la commande "confirmed" (ce qui déclenche automatiquement la
- *     création d'une livraison via le trigger SQL).
+ *     elle marque le lot "confirmed" (ce qui déclenche automatiquement la
+ *     création d'une livraison unique via le trigger SQL).
  *  5. L'écran de retour (PaymentReturn.tsx) réaffiche simplement l'état courant
- *     de la commande — il ne décide jamais lui-même du succès du paiement.
+ *     du lot — il ne décide jamais lui-même du succès du paiement.
  */
 
 export type CheckoutSessionResult = {
@@ -28,9 +28,7 @@ export type CheckoutSessionResult = {
   error?: string;
 };
 
-export async function initiateSenepayCheckout(
-  orderIds: string[]
-): Promise<CheckoutSessionResult> {
+export async function initiateSenepayCheckout(batchId: string): Promise<CheckoutSessionResult> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   if (!accessToken) {
@@ -41,7 +39,7 @@ export async function initiateSenepayCheckout(
 
   const { data, error } = await supabase.functions.invoke("senepay-checkout", {
     body: {
-      orderIds,
+      batchId,
       returnUrl: `${origin}/?payment_return=1`,
       cancelUrl: `${origin}/?payment_cancelled=1`,
     },

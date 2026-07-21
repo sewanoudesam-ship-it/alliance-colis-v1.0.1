@@ -51,9 +51,10 @@ export function currentSellerCommissionRate(wallet: Wallet | null): number {
  * "courier" -> crédité 10 minutes après livraison terminée.
  */
 export async function listPendingPayouts(type: "seller" | "courier"): Promise<ScheduledPayout[]> {
+  const selectClause = type === "seller" ? "*, orders(items_total)" : "*, order_batches(tracking_code, delivery_fee)";
   const { data, error } = await supabase
     .from("scheduled_payouts")
-    .select("*, orders(tracking_code, items_total, delivery_fee)")
+    .select(selectClause)
     .eq("payout_type", type)
     .eq("status", "pending")
     .order("run_at", { ascending: true });
@@ -61,7 +62,7 @@ export async function listPendingPayouts(type: "seller" | "courier"): Promise<Sc
     console.error("listPendingPayouts:", error.message);
     return [];
   }
-  return data ?? [];
+  return (data as unknown as ScheduledPayout[]) ?? [];
 }
 
 /** Admin uniquement (RLS) : solde et revenu cumulé du compte central Alliance Colis. */

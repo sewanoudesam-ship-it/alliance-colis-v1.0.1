@@ -21,6 +21,9 @@ export type Profile = {
   role: UserRole;
   verified: boolean;
   avatar_url?: string | null;
+  terms_accepted: boolean;
+  terms_accepted_at?: string | null;
+  terms_version?: string | null;
   created_at: string;
 };
 
@@ -88,10 +91,27 @@ export type OrderStatus =
   | "completed"
   | "cancelled";
 
-export type Order = {
+export type Warehouse = {
+  id: string;
+  name: string;
+  address: string;
+  warehouse_lat: number;
+  warehouse_lng: number;
+  active: boolean;
+  created_at: string;
+};
+
+export type LocationSource = "gps" | "address" | "manual_confirmation";
+
+/**
+ * Le LOT facturé et livré au client (une seule livraison, même si son panier
+ * contient plusieurs boutiques). Porte la tarification, la géolocalisation,
+ * le code de suivi et le paiement.
+ */
+export type OrderBatch = {
   id: string;
   user_id: string;
-  shop_id: string;
+  warehouse_id: string;
   status: OrderStatus;
   items_total: number;
   delivery_fee: number;
@@ -99,9 +119,21 @@ export type Order = {
   delivery_address: string;
   delivery_lat?: number | null;
   delivery_lng?: number | null;
+  location_source: LocationSource;
   distance_km?: number | null;
   tracking_code: string;
   payment_session_token?: string | null;
+  created_at: string;
+};
+
+/** Une ligne d'exécution par boutique au sein d'un lot (pour le vendeur). */
+export type Order = {
+  id: string;
+  batch_id: string;
+  user_id: string;
+  shop_id: string;
+  status: OrderStatus;
+  items_total: number;
   created_at: string;
 };
 
@@ -119,7 +151,7 @@ export type PaymentStatus = "pending" | "success" | "failed";
 
 export type Payment = {
   id: string;
-  order_id: string;
+  batch_id: string;
   provider: PaymentProvider;
   status: PaymentStatus;
   amount: number;
@@ -136,7 +168,7 @@ export type DeliveryStatus =
 
 export type Delivery = {
   id: string;
-  order_id: string;
+  batch_id: string;
   courier_id?: string | null;
   status: DeliveryStatus;
   courier_lat?: number | null;
@@ -145,7 +177,7 @@ export type Delivery = {
   picked_up_at?: string | null;
   completed_at?: string | null;
   created_at: string;
-  orders?: Order | null;
+  order_batches?: OrderBatch | null;
 };
 
 export type Wallet = {
@@ -161,12 +193,14 @@ export type PayoutStatus = "pending" | "paid" | "failed";
 
 export type ScheduledPayout = {
   id: string;
-  order_id: string;
+  order_id?: string | null;
+  batch_id?: string | null;
   payout_type: PayoutType;
   run_at: string;
   status: PayoutStatus;
   paid_at?: string | null;
-  orders?: { tracking_code: string; items_total: number; delivery_fee: number } | null;
+  orders?: { items_total: number } | null;
+  order_batches?: { tracking_code: string; delivery_fee: number } | null;
 };
 
 export type PlatformAccount = {

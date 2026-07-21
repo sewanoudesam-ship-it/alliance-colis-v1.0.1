@@ -93,8 +93,8 @@ export default function CourierDashboard({ userId }: Props) {
           {available.map((d) => (
             <div key={d.id} className="ac-row">
               <div className="ac-row__main">
-                <span className="ac-row__title">{d.orders?.tracking_code}</span>
-                <span className="ac-row__meta">{d.orders?.delivery_address} · {formatFCFA(d.orders?.delivery_fee ?? 0)}</span>
+                <span className="ac-row__title">{d.order_batches?.tracking_code}</span>
+                <span className="ac-row__meta">{d.order_batches?.delivery_address} · {formatFCFA(d.order_batches?.delivery_fee ?? 0)}</span>
               </div>
               <button className="ac-btn ac-btn--primary ac-btn--sm" onClick={() => handleAccept(d.id)}>Accepter</button>
             </div>
@@ -108,10 +108,10 @@ export default function CourierDashboard({ userId }: Props) {
           {active.map((d) => (
             <div key={d.id} className="ac-card ac-card--pad">
               <div className="ac-flex ac-justify-between ac-mb-8">
-                <span className="ac-row__title">{d.orders?.tracking_code}</span>
+                <span className="ac-row__title">{d.order_batches?.tracking_code}</span>
                 <span className="ac-badge ac-badge--brand">{DELIVERY_STATUS_LABELS[d.status]}</span>
               </div>
-              <p className="ac-text-sm ac-mb-8">{d.orders?.delivery_address}</p>
+              <p className="ac-text-sm ac-mb-8">{d.order_batches?.delivery_address}</p>
               {NEXT_STATUS[d.status] && (
                 <button className="ac-btn ac-btn--dark" onClick={() => handleAdvance(d)}>{NEXT_LABEL[d.status]}</button>
               )}
@@ -126,7 +126,7 @@ export default function CourierDashboard({ userId }: Props) {
           {history.map((d) => (
             <div key={d.id} className="ac-row">
               <div className="ac-row__main">
-                <span className="ac-row__title">{d.orders?.tracking_code}</span>
+                <span className="ac-row__title">{d.order_batches?.tracking_code}</span>
                 <span className="ac-row__meta">{d.completed_at ? formatDateShort(d.completed_at) : ""}</span>
               </div>
               <span className="ac-badge ac-badge--neutral">{DELIVERY_STATUS_LABELS[d.status]}</span>
@@ -155,10 +155,10 @@ export default function CourierDashboard({ userId }: Props) {
                 {pendingPayouts.map((p) => (
                   <div key={p.id} className="ac-row">
                     <div className="ac-row__main">
-                      <span className="ac-row__title">{p.orders?.tracking_code}</span>
+                      <span className="ac-row__title">{p.order_batches?.tracking_code}</span>
                       <span className="ac-row__meta">Versement prévu le {new Date(p.run_at).toLocaleString("fr-FR")}</span>
                     </div>
-                    <span className="ac-badge ac-badge--warning">{formatFCFA(p.orders?.delivery_fee ?? 0)}</span>
+                    <span className="ac-badge ac-badge--warning">{formatFCFA(p.order_batches?.delivery_fee ?? 0)}</span>
                   </div>
                 ))}
               </div>

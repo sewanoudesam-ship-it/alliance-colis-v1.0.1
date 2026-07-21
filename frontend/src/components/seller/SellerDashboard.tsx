@@ -191,7 +191,7 @@ export default function SellerDashboard({ userId }: Props) {
           {orders.map((o) => (
             <div key={o.id} className="ac-row">
               <div className="ac-row__main">
-                <span className="ac-row__title">{o.tracking_code}</span>
+                <span className="ac-row__title">Commande #{o.id.slice(0, 8).toUpperCase()}</span>
                 <span className="ac-row__meta">{formatDateShort(o.created_at)} · {formatFCFA(o.items_total)}</span>
               </div>
               <select
@@ -229,7 +229,7 @@ export default function SellerDashboard({ userId }: Props) {
                 {pendingPayouts.map((p) => (
                   <div key={p.id} className="ac-row">
                     <div className="ac-row__main">
-                      <span className="ac-row__title">{p.orders?.tracking_code}</span>
+                      <span className="ac-row__title">Vente boutique</span>
                       <span className="ac-row__meta">Versement prévu le {new Date(p.run_at).toLocaleString("fr-FR")}</span>
                     </div>
                     <span className="ac-badge ac-badge--warning">{formatFCFA(p.orders?.items_total ?? 0)}</span>

@@ -1,11 +1,12 @@
 // Supabase Edge Function : POST /functions/v1/senepay-webhook
 //
-// Reçoit les notifications SenePay (checkout.session.completed / .failed),
-// vérifie la signature HMAC-SHA256 (header X-SenePay-Signature) avec le
-// webhookSigningSecret, puis met à jour `payments` et `orders`.
+// v1.0.1 : un paiement par LOT (order_batches). Reçoit les notifications
+// SenePay (checkout.session.completed / .failed), vérifie la signature
+// HMAC-SHA256 (header X-SenePay-Signature) avec le webhookSigningSecret, puis
+// met à jour `payments` et `order_batches`.
 //
-// Le passage d'une commande à "confirmed" déclenche automatiquement (trigger SQL
-// trg_create_delivery) la création d'une livraison assignable aux coursiers.
+// Le passage d'un lot à "confirmed" déclenche automatiquement (trigger SQL
+// trg_create_delivery_on_batch) la création d'UNE livraison groupée.
 
 import { serviceClient, corsHeaders } from "../_shared/supabaseAdmin.ts";
 
@@ -29,48 +30,43 @@ Deno.serve(async (req) => {
   const payload = JSON.parse(rawBody);
   const admin = serviceClient();
 
-  const { data: orders } = await admin
-    .from("orders")
+  const { data: batch } = await admin
+    .from("order_batches")
     .select("id, status, total_price")
-    .eq("payment_session_token", payload.sessionToken);
-  if (!orders || orders.length === 0) {
-    // Toujours répondre 200 : on ne veut pas que SenePay ré-essaie indéfiniment
-    // pour une session qu'on ne retrouve pas (ex: test manuel).
-    return new Response(JSON.stringify({ received: true, note: "no matching order" }), {
+    .eq("payment_session_token", payload.sessionToken)
+    .maybeSingle();
+
+  if (!batch) {
+    return new Response(JSON.stringify({ received: true, note: "no matching batch" }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   }
 
   if (payload.event === "checkout.session.completed") {
-    for (const order of orders) {
-      await admin
-        .from("payments")
-        .update({ status: "success", raw_response: payload })
-        .eq("order_id", order.id)
-        .eq("reference", payload.sessionToken);
+    await admin
+      .from("payments")
+      .update({ status: "success", raw_response: payload })
+      .eq("batch_id", batch.id)
+      .eq("reference", payload.sessionToken);
 
-      if (order.status === "pending") {
-        // Le prix total (produits + livraison) est crédité au compte central
-        // Alliance Colis. Les parts vendeur/coursier en seront débitées plus
-        // tard, de façon différée (10min coursier / 24h vendeur), une fois la
-        // livraison terminée — voir process_scheduled_payouts() en base.
-        await admin.rpc("credit_platform_account", { p_amount: order.total_price });
+    if (batch.status === "pending") {
+      // Tout le prix (produits + livraison) est crédité au compte central
+      // Alliance Colis. Les parts vendeur/coursier en seront débitées plus
+      // tard, de façon différée (10min coursier / 24h vendeur).
+      await admin.rpc("credit_platform_account", { p_amount: batch.total_price });
 
-        // Passage à "confirmed" -> déclenche le trigger de création de livraison.
-        await admin.from("orders").update({ status: "confirmed" }).eq("id", order.id);
-      }
+      // Passage à "confirmed" -> déclenche le trigger de création de livraison.
+      await admin.from("order_batches").update({ status: "confirmed" }).eq("id", batch.id);
     }
   }
 
   if (payload.event === "checkout.session.failed") {
-    for (const order of orders) {
-      await admin
-        .from("payments")
-        .update({ status: "failed", raw_response: payload })
-        .eq("order_id", order.id)
-        .eq("reference", payload.sessionToken);
-    }
+    await admin
+      .from("payments")
+      .update({ status: "failed", raw_response: payload })
+      .eq("batch_id", batch.id)
+      .eq("reference", payload.sessionToken);
   }
 
   return new Response(JSON.stringify({ received: true }), {

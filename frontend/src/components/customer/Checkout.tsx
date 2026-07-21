@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
-import { supabase } from "../../lib/supabase";
-import { createOrdersFromCart } from "../../services/orderService";
+import { useEffect, useMemo, useState } from "react";
+import { getActiveWarehouse } from "../../services/warehouseService";
+import { createBatchFromCart } from "../../services/orderService";
 import { initiateSenepayCheckout } from "../../services/paymentService";
 import { haversineDistanceKm, calculateDeliveryFee } from "../../utils/pricing";
 import { formatFCFA } from "../../utils/format";
 import { MOBILE_MONEY_OPERATORS } from "../../lib/constants";
-import type { CartItem } from "../../types";
+import type { CartItem, LocationSource, Warehouse } from "../../types";
 
 type Props = {
   userId: string;
@@ -16,35 +16,59 @@ type Props = {
 
 type Step = "address" | "payment";
 
+/**
+ * Le GPS n'est plus un blocage : si le client ne le partage pas (ou que son
+ * téléphone ne le permet pas), la commande part quand même avec l'adresse
+ * saisie à la main (location_source = "address"). Un administrateur confirme
+ * ensuite la distance réelle pour ajuster le tarif si besoin
+ * (location_source passe alors à "manual_confirmation").
+ */
 export default function Checkout({ userId, cartItems, onBack, onSuccess }: Props) {
   const [step, setStep] = useState<Step>("address");
+  const [warehouse, setWarehouse] = useState<Warehouse | null | undefined>(undefined);
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsAttempted, setGpsAttempted] = useState(false);
   const [locating, setLocating] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getActiveWarehouse().then(setWarehouse);
+  }, []);
 
   const itemsTotal = useMemo(
     () => cartItems.reduce((sum, i) => sum + (i.products?.price ?? 0) * i.quantity, 0),
     [cartItems]
   );
 
+  const distanceKm = useMemo(() => {
+    if (!coords || !warehouse) return null;
+    return haversineDistanceKm(coords.lat, coords.lng, warehouse.warehouse_lat, warehouse.warehouse_lng);
+  }, [coords, warehouse]);
+
+  const locationSource: LocationSource = coords ? "gps" : "address";
+  const estimatedFee = distanceKm != null ? calculateDeliveryFee(distanceKm) : calculateDeliveryFee(0);
+
   function locateMe() {
     setLocating(true);
     setError(null);
     if (!navigator.geolocation) {
       setLocating(false);
-      setError("La géolocalisation n'est pas disponible sur cet appareil.");
+      setGpsAttempted(true);
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setLocating(false);
+        setGpsAttempted(true);
       },
       () => {
+        // Échec/refus GPS : ce n'est plus bloquant, la commande continuera
+        // avec l'adresse saisie manuellement.
         setLocating(false);
-        setError("Impossible de récupérer votre position. Autorisez la géolocalisation ou réessayez.");
+        setGpsAttempted(true);
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
@@ -53,48 +77,35 @@ export default function Checkout({ userId, cartItems, onBack, onSuccess }: Props
   function continueToPayment() {
     setError(null);
     if (!address.trim()) {
-      setError("Veuillez saisir votre adresse de livraison.");
-      return;
-    }
-    if (!coords) {
-      setError("Merci de partager votre position pour estimer les frais de livraison.");
+      setError("Veuillez saisir votre adresse, quartier ou point de repère.");
       return;
     }
     setStep("payment");
   }
 
-  async function distanceByShopMap(): Promise<Map<string, number>> {
-    const map = new Map<string, number>();
-    const shopIds = Array.from(new Set(cartItems.map((i) => i.products?.shop_id).filter(Boolean))) as string[];
-    const { data: shops } = await supabase.from("shops").select("id, shop_lat, shop_lng").in("id", shopIds);
-    for (const shop of shops ?? []) {
-      if (shop.shop_lat != null && shop.shop_lng != null && coords) {
-        map.set(shop.id, haversineDistanceKm(coords.lat, coords.lng, shop.shop_lat, shop.shop_lng));
-      } else {
-        map.set(shop.id, 0);
-      }
-    }
-    return map;
-  }
-
-  const estimatedFee = useMemo(() => calculateDeliveryFee(5), []);
-
   async function handlePay() {
-    if (!coords) return;
+    if (!warehouse) return;
     setProcessing(true);
     setError(null);
 
-    const distances = await distanceByShopMap();
-    const checkout = await createOrdersFromCart(userId, cartItems, address, coords.lat, coords.lng, distances);
+    const checkout = await createBatchFromCart(
+      userId,
+      cartItems,
+      warehouse.id,
+      address,
+      locationSource,
+      coords?.lat ?? null,
+      coords?.lng ?? null,
+      distanceKm
+    );
 
-    if (!checkout.success || checkout.orders.length === 0) {
+    if (!checkout.success || !checkout.batch) {
       setProcessing(false);
       setError(checkout.error ?? "Impossible de créer la commande.");
       return;
     }
 
-    const orderIds = checkout.orders.map((o) => o.id);
-    const session = await initiateSenepayCheckout(orderIds);
+    const session = await initiateSenepayCheckout(checkout.batch.id);
 
     if (!session.success || !session.checkoutUrl) {
       setProcessing(false);
@@ -102,7 +113,6 @@ export default function Checkout({ userId, cartItems, onBack, onSuccess }: Props
       return;
     }
 
-    // Redirection vers la page de paiement hébergée SenePay (Wave / Orange / MTN / Moov / Free).
     window.location.href = session.checkoutUrl;
   }
 
@@ -116,18 +126,33 @@ export default function Checkout({ userId, cartItems, onBack, onSuccess }: Props
       {step === "address" && (
         <div className="ac-card ac-card--pad">
           <div className="ac-field">
-            <label className="ac-label">Adresse / point de repère</label>
-            <input className="ac-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Ex : Cocody Angré, Abidjan" />
+            <label className="ac-label">Adresse / quartier / point de repère</label>
+            <input className="ac-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Ex : Cocody Angré, non loin de la pharmacie" />
           </div>
+
           <button className="ac-btn ac-btn--outline ac-mb-8" onClick={locateMe} disabled={locating}>
-            {locating ? "Localisation…" : coords ? "📍 Position enregistrée" : "📍 Partager ma position"}
+            {locating ? "Localisation…" : coords ? "📍 Position précise enregistrée" : "📍 Partager ma position (optionnel)"}
           </button>
+
+          {gpsAttempted && !coords && (
+            <div className="ac-alert ac-alert--info">
+              Pas de souci : votre commande sera traitée avec l'adresse saisie ci-dessus. Un tarif
+              de livraison précis sera confirmé rapidement par notre équipe.
+            </div>
+          )}
+
           <div className="ac-flex ac-justify-between ac-mt-8">
-            <span className="ac-text-sm">Frais de livraison estimés</span>
-            <strong>{formatFCFA(estimatedFee)}+</strong>
+            <span className="ac-text-sm">Frais de livraison {coords ? "" : "(estimation)"}</span>
+            <strong>{formatFCFA(estimatedFee)}{coords ? "" : "+"}</strong>
           </div>
-          <p className="ac-text-sm ac-mb-8">Le montant exact est calculé selon la distance réelle jusqu'à la boutique (1000 FCFA jusqu'à 5km, puis +100 FCFA/km).</p>
-          <button className="ac-btn ac-btn--primary" onClick={continueToPayment}>Continuer</button>
+          <p className="ac-text-sm ac-mb-8">
+            Calculé depuis notre entrepôt jusqu'à votre adresse : 1000 FCFA jusqu'à 5km, puis +100 FCFA/km.
+            {distanceKm != null && ` Distance estimée : ${distanceKm.toFixed(1)} km.`}
+          </p>
+
+          <button className="ac-btn ac-btn--primary" onClick={continueToPayment} disabled={warehouse === undefined}>
+            {warehouse === undefined ? "Chargement…" : "Continuer"}
+          </button>
         </div>
       )}
 
@@ -136,6 +161,10 @@ export default function Checkout({ userId, cartItems, onBack, onSuccess }: Props
           <div className="ac-flex ac-justify-between ac-mb-8">
             <span className="ac-text-sm">Total produits</span>
             <strong>{formatFCFA(itemsTotal)}</strong>
+          </div>
+          <div className="ac-flex ac-justify-between ac-mb-8">
+            <span className="ac-text-sm">Livraison{coords ? "" : " (provisoire)"}</span>
+            <strong>{formatFCFA(estimatedFee)}</strong>
           </div>
 
           <p className="ac-section-title ac-mt-16">Payer avec Mobile Money</p>
@@ -146,9 +175,7 @@ export default function Checkout({ userId, cartItems, onBack, onSuccess }: Props
               </span>
             ))}
           </div>
-          <p className="ac-text-sm ac-mb-8">
-            Vous choisirez votre opérateur sur la page de paiement sécurisée SenePay.
-          </p>
+          <p className="ac-text-sm ac-mb-8">Vous choisirez votre opérateur sur la page de paiement sécurisée SenePay.</p>
 
           <div className="ac-alert ac-alert--info">
             Paiement sécurisé via SenePay (environnement sandbox — aucune vraie transaction n'est débitée en test).

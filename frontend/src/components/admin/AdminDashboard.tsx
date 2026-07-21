@@ -3,15 +3,16 @@ import { listKyc, approveKyc, rejectKyc } from "../../services/kycService";
 import { listShops, setShopStatus } from "../../services/shopService";
 import { listPendingProducts, approveProduct } from "../../services/productService";
 import { listProfiles, adminSetRole } from "../../services/profileService";
-import { listAllOrders } from "../../services/orderService";
+import { listAllBatches, confirmBatchDistance } from "../../services/orderService";
 import { listAllActiveDeliveries } from "../../services/deliveryService";
 import { getPlatformAccount } from "../../services/walletService";
+import { listWarehouses, updateWarehouse } from "../../services/warehouseService";
 import { formatFCFA, formatDateShort } from "../../utils/format";
 import { ORDER_STATUS_LABELS, DELIVERY_STATUS_LABELS } from "../../lib/constants";
 import Toast from "../shared/Toast";
-import type { KycDocument, Shop, Product, Profile, Order, Delivery, PlatformAccount } from "../../types";
+import type { KycDocument, Shop, Product, Profile, OrderBatch, Delivery, PlatformAccount, Warehouse } from "../../types";
 
-type Tab = "overview" | "kyc" | "shops" | "products" | "users" | "deliveries" | "orders";
+type Tab = "overview" | "kyc" | "shops" | "products" | "users" | "deliveries" | "orders" | "warehouse";
 type ToastState = { type: "success" | "danger"; text: string } | null;
 
 export default function AdminDashboard() {
@@ -20,14 +21,16 @@ export default function AdminDashboard() {
   const [shops, setShops] = useState<Shop[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [batches, setBatches] = useState<OrderBatch[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [platformAccount, setPlatformAccount] = useState<PlatformAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectComment, setRejectComment] = useState("");
   const [toast, setToast] = useState<ToastState>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [distanceDrafts, setDistanceDrafts] = useState<Record<string, string>>({});
 
   function flashSuccess(text: string) {
     setToast({ type: "success", text });
@@ -40,15 +43,16 @@ export default function AdminDashboard() {
   async function refresh() {
     setLoading(true);
     if (tab === "overview") {
-      const [o, s, p, pa] = await Promise.all([listAllOrders(), listShops(), listProfiles(), getPlatformAccount()]);
-      setOrders(o); setShops(s); setProfiles(p); setPlatformAccount(pa);
+      const [b, s, p, pa] = await Promise.all([listAllBatches(), listShops(), listProfiles(), getPlatformAccount()]);
+      setBatches(b); setShops(s); setProfiles(p); setPlatformAccount(pa);
     }
     if (tab === "kyc") setKyc(await listKyc("pending"));
     if (tab === "shops") setShops(await listShops());
     if (tab === "products") setProducts(await listPendingProducts());
     if (tab === "users") setProfiles(await listProfiles());
     if (tab === "deliveries") setDeliveries(await listAllActiveDeliveries());
-    if (tab === "orders") setOrders(await listAllOrders());
+    if (tab === "orders") setBatches(await listAllBatches());
+    if (tab === "warehouse") setWarehouses(await listWarehouses());
     setLoading(false);
   }
 
@@ -61,10 +65,7 @@ export default function AdminDashboard() {
     setBusyId(doc.id);
     const result = await approveKyc(doc);
     setBusyId(null);
-    if (!result.success) {
-      flashError(result.error ?? "Échec de la validation KYC.");
-      return;
-    }
+    if (!result.success) { flashError(result.error ?? "Échec de la validation KYC."); return; }
     flashSuccess(`${doc.full_name} validé(e) avec succès.`);
     refresh();
   }
@@ -75,10 +76,7 @@ export default function AdminDashboard() {
     setBusyId(null);
     setRejectingId(null);
     setRejectComment("");
-    if (!result.success) {
-      flashError(result.error ?? "Échec du refus.");
-      return;
-    }
+    if (!result.success) { flashError(result.error ?? "Échec du refus."); return; }
     flashSuccess(`Demande de ${doc.full_name} refusée.`);
     refresh();
   }
@@ -87,10 +85,7 @@ export default function AdminDashboard() {
     setBusyId(shop.id);
     const ok = await setShopStatus(shop.id, status);
     setBusyId(null);
-    if (!ok) {
-      flashError(`Échec de la mise à jour du statut de "${shop.name}". Réessayez.`);
-      return;
-    }
+    if (!ok) { flashError(`Échec de la mise à jour du statut de "${shop.name}". Réessayez.`); return; }
     flashSuccess(`Statut de "${shop.name}" mis à jour.`);
     refresh();
   }
@@ -99,10 +94,7 @@ export default function AdminDashboard() {
     setBusyId(product.id);
     const ok = await approveProduct(product.id);
     setBusyId(null);
-    if (!ok) {
-      flashError(`Échec de la validation de "${product.name}". Réessayez.`);
-      return;
-    }
+    if (!ok) { flashError(`Échec de la validation de "${product.name}". Réessayez.`); return; }
     flashSuccess(`"${product.name}" validé et visible sur la marketplace.`);
     refresh();
   }
@@ -111,13 +103,33 @@ export default function AdminDashboard() {
     setBusyId(profile.id);
     const ok = await adminSetRole(profile.id, role);
     setBusyId(null);
-    if (!ok) {
-      flashError(`Échec de la mise à jour du rôle de "${profile.full_name}".`);
-      return;
-    }
+    if (!ok) { flashError(`Échec de la mise à jour du rôle de "${profile.full_name}".`); return; }
     flashSuccess(`Rôle de "${profile.full_name}" mis à jour.`);
     refresh();
   }
+
+  async function handleConfirmDistance(batch: OrderBatch) {
+    const raw = distanceDrafts[batch.id];
+    const km = Number(raw);
+    if (!raw || isNaN(km) || km < 0) { flashError("Distance invalide."); return; }
+    setBusyId(batch.id);
+    const ok = await confirmBatchDistance(batch.id, km);
+    setBusyId(null);
+    if (!ok) { flashError(`Échec de la mise à jour de ${batch.tracking_code}.`); return; }
+    flashSuccess(`Distance confirmée pour ${batch.tracking_code} : ${km} km.`);
+    refresh();
+  }
+
+  async function handleUpdateWarehouse(w: Warehouse, patch: Partial<Warehouse>) {
+    setBusyId(w.id);
+    const ok = await updateWarehouse(w.id, patch);
+    setBusyId(null);
+    if (!ok) { flashError("Échec de la mise à jour de l'entrepôt."); return; }
+    flashSuccess("Entrepôt mis à jour.");
+    refresh();
+  }
+
+  const batchesNeedingConfirmation = batches.filter((b) => b.location_source === "address");
 
   return (
     <div>
@@ -134,6 +146,7 @@ export default function AdminDashboard() {
         <button className={`ac-tab ${tab === "users" ? "active" : ""}`} onClick={() => setTab("users")}>Utilisateurs</button>
         <button className={`ac-tab ${tab === "deliveries" ? "active" : ""}`} onClick={() => setTab("deliveries")}>Livraisons</button>
         <button className={`ac-tab ${tab === "orders" ? "active" : ""}`} onClick={() => setTab("orders")}>Commandes</button>
+        <button className={`ac-tab ${tab === "warehouse" ? "active" : ""}`} onClick={() => setTab("warehouse")}>Entrepôt</button>
       </div>
 
       {loading && <div className="ac-skeleton" style={{ height: 160 }} />}
@@ -143,9 +156,16 @@ export default function AdminDashboard() {
           <div className="ac-stat-grid ac-mb-8">
             <div className="ac-stat-card"><div className="ac-stat-card__value">{profiles.length}</div><div className="ac-stat-card__label">Utilisateurs</div></div>
             <div className="ac-stat-card"><div className="ac-stat-card__value">{shops.filter(s => s.status === "approved").length}</div><div className="ac-stat-card__label">Boutiques actives</div></div>
-            <div className="ac-stat-card"><div className="ac-stat-card__value">{orders.length}</div><div className="ac-stat-card__label">Commandes totales</div></div>
-            <div className="ac-stat-card"><div className="ac-stat-card__value">{formatFCFA(orders.reduce((s, o) => s + o.total_price, 0))}</div><div className="ac-stat-card__label">Volume total</div></div>
+            <div className="ac-stat-card"><div className="ac-stat-card__value">{batches.length}</div><div className="ac-stat-card__label">Commandes totales</div></div>
+            <div className="ac-stat-card"><div className="ac-stat-card__value">{formatFCFA(batches.reduce((s, b) => s + b.total_price, 0))}</div><div className="ac-stat-card__label">Volume total</div></div>
           </div>
+
+          {batchesNeedingConfirmation.length > 0 && (
+            <div className="ac-alert ac-alert--warning ac-mb-8">
+              {batchesNeedingConfirmation.length} commande(s) sans GPS attendent une confirmation de
+              distance — voir l'onglet <strong>Commandes</strong>.
+            </div>
+          )}
 
           <p className="ac-section-title">Compte central Alliance Colis</p>
           <div className="ac-stat-grid">
@@ -208,12 +228,7 @@ export default function AdminDashboard() {
                 <span className="ac-row__title">{s.name}</span>
                 <span className="ac-row__meta">{formatDateShort(s.created_at)}</span>
               </div>
-              <select
-                className="ac-select"
-                value={s.status}
-                disabled={busyId === s.id}
-                onChange={(e) => handleShopStatus(s, e.target.value as Shop["status"])}
-              >
+              <select className="ac-select" value={s.status} disabled={busyId === s.id} onChange={(e) => handleShopStatus(s, e.target.value as Shop["status"])}>
                 <option value="pending">En attente</option>
                 <option value="approved">Validée</option>
                 <option value="blocked">Bloquée</option>
@@ -248,12 +263,7 @@ export default function AdminDashboard() {
                 <span className="ac-row__title">{p.full_name}</span>
                 <span className="ac-row__meta">{p.email} · {p.country}</span>
               </div>
-              <select
-                className="ac-select"
-                value={p.role}
-                disabled={busyId === p.id}
-                onChange={(e) => handleSetRole(p, e.target.value as Profile["role"])}
-              >
+              <select className="ac-select" value={p.role} disabled={busyId === p.id} onChange={(e) => handleSetRole(p, e.target.value as Profile["role"])}>
                 <option value="customer">Client</option>
                 <option value="seller_pending">Vendeur (en attente)</option>
                 <option value="seller">Vendeur</option>
@@ -272,8 +282,8 @@ export default function AdminDashboard() {
           {deliveries.map((d) => (
             <div key={d.id} className="ac-row">
               <div className="ac-row__main">
-                <span className="ac-row__title">{d.orders?.tracking_code}</span>
-                <span className="ac-row__meta">{d.orders?.delivery_address}</span>
+                <span className="ac-row__title">{d.order_batches?.tracking_code}</span>
+                <span className="ac-row__meta">{d.order_batches?.delivery_address}</span>
               </div>
               <span className="ac-badge ac-badge--brand">{DELIVERY_STATUS_LABELS[d.status]}</span>
             </div>
@@ -283,17 +293,78 @@ export default function AdminDashboard() {
 
       {!loading && tab === "orders" && (
         <div className="ac-list">
-          {orders.map((o) => (
-            <div key={o.id} className="ac-row">
-              <div className="ac-row__main">
-                <span className="ac-row__title">{o.tracking_code}</span>
-                <span className="ac-row__meta">{formatDateShort(o.created_at)} · {formatFCFA(o.total_price)}</span>
+          {batches.map((b) => (
+            <div key={b.id} className="ac-card ac-card--pad">
+              <div className="ac-flex ac-justify-between ac-mb-8">
+                <span className="ac-row__title">{b.tracking_code}</span>
+                <span className="ac-badge ac-badge--neutral">{ORDER_STATUS_LABELS[b.status]}</span>
               </div>
-              <span className="ac-badge ac-badge--neutral">{ORDER_STATUS_LABELS[o.status]}</span>
+              <p className="ac-text-sm ac-mb-8">{formatDateShort(b.created_at)} · {formatFCFA(b.total_price)} · {b.delivery_address}</p>
+              {b.location_source === "address" ? (
+                <div className="ac-flex ac-gap-8">
+                  <input
+                    className="ac-input"
+                    type="number"
+                    placeholder="Distance réelle (km)"
+                    value={distanceDrafts[b.id] ?? ""}
+                    onChange={(e) => setDistanceDrafts((d) => ({ ...d, [b.id]: e.target.value }))}
+                  />
+                  <button className="ac-btn ac-btn--dark ac-btn--sm" disabled={busyId === b.id} onClick={() => handleConfirmDistance(b)}>
+                    Confirmer
+                  </button>
+                </div>
+              ) : (
+                <span className="ac-text-sm">Distance : {b.distance_km ?? "?"} km ({b.location_source === "gps" ? "GPS" : "confirmée manuellement"})</span>
+              )}
             </div>
           ))}
         </div>
       )}
+
+      {!loading && tab === "warehouse" && (
+        <div className="ac-list">
+          {warehouses.map((w) => (
+            <WarehouseEditor key={w.id} warehouse={w} busy={busyId === w.id} onSave={(patch) => handleUpdateWarehouse(w, patch)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WarehouseEditor({ warehouse, busy, onSave }: { warehouse: Warehouse; busy: boolean; onSave: (patch: Partial<Warehouse>) => void }) {
+  const [name, setName] = useState(warehouse.name);
+  const [address, setAddress] = useState(warehouse.address);
+  const [lat, setLat] = useState(String(warehouse.warehouse_lat));
+  const [lng, setLng] = useState(String(warehouse.warehouse_lng));
+
+  return (
+    <div className="ac-card ac-card--pad">
+      <div className="ac-field">
+        <label className="ac-label">Nom</label>
+        <input className="ac-input" value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="ac-field">
+        <label className="ac-label">Adresse</label>
+        <input className="ac-input" value={address} onChange={(e) => setAddress(e.target.value)} />
+      </div>
+      <div className="ac-input-group ac-field">
+        <div style={{ flex: 1 }}>
+          <label className="ac-label">Latitude</label>
+          <input className="ac-input" value={lat} onChange={(e) => setLat(e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="ac-label">Longitude</label>
+          <input className="ac-input" value={lng} onChange={(e) => setLng(e.target.value)} />
+        </div>
+      </div>
+      <button
+        className="ac-btn ac-btn--primary"
+        disabled={busy}
+        onClick={() => onSave({ name, address, warehouse_lat: Number(lat), warehouse_lng: Number(lng) })}
+      >
+        {busy ? "Enregistrement…" : "Enregistrer"}
+      </button>
     </div>
   );
 }

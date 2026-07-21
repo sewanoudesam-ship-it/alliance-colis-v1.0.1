@@ -1,12 +1,11 @@
 // Supabase Edge Function : POST /functions/v1/senepay-checkout
 //
-// Reçoit une liste d'orderIds appartenant à l'utilisateur authentifié, calcule le
-// montant total, crée une session de paiement SenePay (Checkout hébergé) et
-// renvoie l'URL de paiement vers laquelle rediriger le client.
+// v1.0.1 : un paiement par LOT (order_batches), plus par commande individuelle.
+// Reçoit un batchId appartenant à l'utilisateur authentifié, crée une session
+// de paiement SenePay (Checkout hébergé) et renvoie l'URL de paiement.
 //
 // Sécurité : X-Api-Key / X-Api-Secret SenePay restent dans les secrets Supabase
-// (jamais dans le bundle frontend). Voir supabase/functions/README.md pour le
-// déploiement et la configuration des secrets.
+// (jamais dans le bundle frontend). Voir supabase/functions/README.md.
 
 import { serviceClient, corsHeaders } from "../_shared/supabaseAdmin.ts";
 
@@ -29,28 +28,26 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { orderIds, returnUrl, cancelUrl } = await req.json();
-    if (!Array.isArray(orderIds) || orderIds.length === 0) {
-      return json({ error: "orderIds requis." }, 400);
+    const { batchId, returnUrl, cancelUrl } = await req.json();
+    if (!batchId) {
+      return json({ error: "batchId requis." }, 400);
     }
 
-    const { data: orders, error: ordersError } = await admin
-      .from("orders")
+    const { data: batch, error: batchError } = await admin
+      .from("order_batches")
       .select("id, user_id, status, total_price, tracking_code")
-      .in("id", orderIds);
+      .eq("id", batchId)
+      .single();
 
-    if (ordersError || !orders || orders.length !== orderIds.length) {
-      return json({ error: "Commande(s) introuvable(s)." }, 404);
+    if (batchError || !batch) {
+      return json({ error: "Commande introuvable." }, 404);
     }
-    if (orders.some((o) => o.user_id !== userId)) {
-      return json({ error: "Accès refusé à une des commandes." }, 403);
+    if (batch.user_id !== userId) {
+      return json({ error: "Accès refusé à cette commande." }, 403);
     }
-    if (orders.some((o) => o.status !== "pending")) {
-      return json({ error: "Une des commandes n'est plus en attente de paiement." }, 400);
+    if (batch.status !== "pending") {
+      return json({ error: "Cette commande n'est plus en attente de paiement." }, 400);
     }
-
-    const totalAmount = orders.reduce((sum, o) => sum + Number(o.total_price), 0);
-    const orderReference = `AC-${orders.map((o) => o.tracking_code).join("+")}`.slice(0, 60);
 
     const apiKey = Deno.env.get("SENEPAY_API_KEY");
     const apiSecret = Deno.env.get("SENEPAY_API_SECRET");
@@ -68,14 +65,14 @@ Deno.serve(async (req) => {
         "X-Api-Secret": apiSecret,
       },
       body: JSON.stringify({
-        amount: Math.round(totalAmount),
+        amount: Math.round(Number(batch.total_price)),
         currency: "XOF",
-        orderReference,
-        description: `Commande Alliance Colis ${orderReference}`,
+        orderReference: batch.tracking_code,
+        description: `Commande Alliance Colis ${batch.tracking_code}`,
         returnUrl,
         cancelUrl,
         webhookUrl,
-        metadata: { orderIds: orderIds.join(",") },
+        metadata: { batchId: batch.id },
         expiresInMinutes: 30,
       }),
     });
@@ -88,21 +85,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    await admin
-      .from("orders")
-      .update({ payment_session_token: senepayData.sessionToken })
-      .in("id", orderIds);
+    await admin.from("order_batches").update({ payment_session_token: senepayData.sessionToken }).eq("id", batch.id);
 
-    for (const order of orders) {
-      await admin.from("payments").insert({
-        order_id: order.id,
-        provider: "senepay",
-        status: "pending",
-        amount: order.total_price,
-        reference: senepayData.sessionToken,
-        raw_response: senepayData,
-      });
-    }
+    await admin.from("payments").insert({
+      batch_id: batch.id,
+      provider: "senepay",
+      status: "pending",
+      amount: batch.total_price,
+      reference: senepayData.sessionToken,
+      raw_response: senepayData,
+    });
 
     return json({ checkoutUrl: senepayData.checkoutUrl, sessionToken: senepayData.sessionToken });
   } catch (err) {

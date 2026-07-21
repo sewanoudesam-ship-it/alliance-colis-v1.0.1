@@ -8,6 +8,9 @@ import HamburgerMenu from "./components/layout/HamburgerMenu";
 import RoleRouter from "./components/layout/RoleRouter";
 import InstallBanner from "./components/layout/InstallBanner";
 import PaymentReturn from "./components/customer/PaymentReturn";
+import LegalPage from "./components/legal/LegalPage";
+import Footer from "./components/layout/Footer";
+import { TERMS_SECTIONS, PRIVACY_SECTIONS } from "./lib/legalContent";
 import type { TabType } from "./types";
 import logo from "./assets/logo.png";
 
@@ -25,6 +28,7 @@ export default function PublicApp() {
   const [tab, setTab] = useState<TabType>("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [legalView, setLegalView] = useState<"terms" | "privacy" | null>(null);
 
   const params = new URLSearchParams(window.location.search);
   const isPaymentReturn = params.has("payment_return");
@@ -89,6 +93,13 @@ export default function PublicApp() {
     );
   }
 
+  if (legalView === "terms") {
+    return <LegalPage title="Conditions d'utilisation" sections={TERMS_SECTIONS} onClose={() => setLegalView(null)} />;
+  }
+  if (legalView === "privacy") {
+    return <LegalPage title="Politique de confidentialité" sections={PRIVACY_SECTIONS} onClose={() => setLegalView(null)} />;
+  }
+
   return (
     <div className="ac-app">
       <header className="ac-header">
@@ -115,6 +126,8 @@ export default function PublicApp() {
           onBecomeSeller={handleBecomeSeller}
           onBecomeCourier={handleBecomeCourier}
           onProfileUpdated={refreshProfile}
+          onOpenTerms={() => { setMenuOpen(false); setLegalView("terms"); }}
+          onOpenPrivacy={() => { setMenuOpen(false); setLegalView("privacy"); }}
         />
       )}
 
@@ -137,6 +150,10 @@ export default function PublicApp() {
           </div>
         )}
       </main>
+
+      {!isPaymentReturn && !isPaymentCancelled && (
+        <Footer onOpenTerms={() => setLegalView("terms")} onOpenPrivacy={() => setLegalView("privacy")} />
+      )}
 
       {profile?.role === "customer" && !isPaymentReturn && !isPaymentCancelled && (
         <nav className="ac-tabbar">

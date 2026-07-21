@@ -687,6 +687,53 @@ a { color: inherit; }
 }
 
 /* ============================================================================
+   FOOTER
+   ============================================================================ */
+.ac-footer {
+  text-align: center;
+  padding: 20px 16px calc(90px + env(safe-area-inset-bottom));
+  color: var(--ink-faint);
+}
+.ac-footer--dark { color: rgba(255,255,255,0.55); }
+.ac-footer__links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.ac-footer__links button, .ac-footer__links a {
+  background: none;
+  border: none;
+  color: inherit;
+  text-decoration: underline;
+  font-size: 12px;
+  padding: 0;
+}
+.ac-footer__copy { font-size: 11px; }
+
+/* ============================================================================
+   CASE À COCHER CGU
+   ============================================================================ */
+.ac-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 16px;
+}
+.ac-checkbox-row input[type="checkbox"] {
+  margin-top: 2px;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--brand);
+  flex-shrink: 0;
+}
+.ac-checkbox-row label { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+.ac-checkbox-row a { color: var(--brand-dark); font-weight: 600; text-decoration: underline; }
+
+/* ============================================================================
    UTILITAIRES
    ============================================================================ */
 .ac-flex { display: flex; }
