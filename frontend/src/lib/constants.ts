@@ -2,22 +2,22 @@ import type { Country } from "../types";
 
 /** Pays supportés CEDEAO/UEMOA — liste unique utilisée partout dans l'app. */
 export const COUNTRIES: Country[] = [
-  { code: "BJ", name: "Bénin", prefix: "+229", flag: "🇧🇯" },
-  { code: "BF", name: "Burkina Faso", prefix: "+226", flag: "🇧🇫" },
-  { code: "CV", name: "Cap-Vert", prefix: "+238", flag: "🇨🇻" },
-  { code: "CI", name: "Côte d'Ivoire", prefix: "+225", flag: "🇨🇮" },
-  { code: "GM", name: "Gambie", prefix: "+220", flag: "🇬🇲" },
-  { code: "GH", name: "Ghana", prefix: "+233", flag: "🇬🇭" },
-  { code: "GN", name: "Guinée", prefix: "+224", flag: "🇬🇳" },
-  { code: "GW", name: "Guinée-Bissau", prefix: "+245", flag: "🇬🇼" },
-  { code: "LR", name: "Liberia", prefix: "+231", flag: "🇱🇷" },
-  { code: "ML", name: "Mali", prefix: "+223", flag: "🇲🇱" },
-  { code: "MR", name: "Mauritanie", prefix: "+222", flag: "🇲🇷" },
-  { code: "NE", name: "Niger", prefix: "+227", flag: "🇳🇪" },
-  { code: "NG", name: "Nigeria", prefix: "+234", flag: "🇳🇬" },
-  { code: "SN", name: "Sénégal", prefix: "+221", flag: "🇸🇳" },
-  { code: "SL", name: "Sierra Leone", prefix: "+232", flag: "🇸🇱" },
-  { code: "TG", name: "Togo", prefix: "+228", flag: "🇹🇬" },
+  { code: "BJ", name: "Bénin", prefix: "+229" },
+  { code: "BF", name: "Burkina Faso", prefix: "+226" },
+  { code: "CV", name: "Cap-Vert", prefix: "+238" },
+  { code: "CI", name: "Côte d'Ivoire", prefix: "+225" },
+  { code: "GM", name: "Gambie", prefix: "+220" },
+  { code: "GH", name: "Ghana", prefix: "+233" },
+  { code: "GN", name: "Guinée", prefix: "+224" },
+  { code: "GW", name: "Guinée-Bissau", prefix: "+245" },
+  { code: "LR", name: "Liberia", prefix: "+231" },
+  { code: "ML", name: "Mali", prefix: "+223" },
+  { code: "MR", name: "Mauritanie", prefix: "+222" },
+  { code: "NE", name: "Niger", prefix: "+227" },
+  { code: "NG", name: "Nigeria", prefix: "+234" },
+  { code: "SN", name: "Sénégal", prefix: "+221" },
+  { code: "SL", name: "Sierra Leone", prefix: "+232" },
+  { code: "TG", name: "Togo", prefix: "+228" },
 ];
 
 /** Tarification livraison : 1000 FCFA jusqu'à 5km, puis +100 FCFA/km. */

@@ -5,6 +5,24 @@ import { TERMS_VERSION, TERMS_SECTIONS, PRIVACY_SECTIONS } from "../../lib/legal
 import LegalPage from "../legal/LegalPage";
 import Footer from "../layout/Footer";
 import logo from "../../assets/logo.png";
+import type { AuthError } from "@supabase/supabase-js";
+
+/**
+ * Convertit une erreur Supabase Auth en message lisible. Filet de sécurité
+ * pour les erreurs mal formées côté serveur (ex : 500 "Error sending
+ * recovery email" quand le SMTP du projet est mal configuré, qui peut
+ * remonter sans message exploitable).
+ */
+function friendlyAuthError(error: AuthError | Error): string {
+  const raw = error.message?.trim();
+  if (!raw || raw === "{}" || raw.length < 3) {
+    return "Une erreur est survenue côté serveur (souvent : l'envoi d'email n'est pas configuré). Réessayez dans un instant ou contactez le support.";
+  }
+  if (raw.toLowerCase().includes("email rate limit")) {
+    return "Trop de tentatives récentes pour cet email. Réessayez dans quelques minutes.";
+  }
+  return raw;
+}
 
 type View = "login" | "signup" | "forgot" | "reset";
 type LegalView = "terms" | "privacy" | null;
@@ -45,7 +63,7 @@ export default function AuthGate() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) setMessage({ type: "danger", text: error.message });
+    if (error) setMessage({ type: "danger", text: friendlyAuthError(error) });
   }
 
   async function handleSignup() {
@@ -86,7 +104,7 @@ export default function AuthGate() {
 
     if (error) {
       setLoading(false);
-      setMessage({ type: "danger", text: error.message });
+      setMessage({ type: "danger", text: friendlyAuthError(error) });
       return;
     }
 
@@ -105,7 +123,7 @@ export default function AuthGate() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
     setLoading(false);
     if (error) {
-      setMessage({ type: "danger", text: error.message });
+      setMessage({ type: "danger", text: friendlyAuthError(error) });
       return;
     }
     setMessage({ type: "success", text: "Un lien de réinitialisation vient de vous être envoyé par email." });
@@ -121,7 +139,7 @@ export default function AuthGate() {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setLoading(false);
     if (error) {
-      setMessage({ type: "danger", text: error.message });
+      setMessage({ type: "danger", text: friendlyAuthError(error) });
       return;
     }
     setMessage({ type: "success", text: "Mot de passe mis à jour. Vous êtes connecté." });

@@ -399,11 +399,37 @@ create policy "warehouses_select_all" on warehouses for select using (true);
 create policy "warehouses_write_admin_only" on warehouses
   for all using (current_role_is('admin')) with check (current_role_is('admin'));
 
+-- Fonctions SECURITY DEFINER cassant la récursion circulaire entre
+-- order_batches <-> orders <-> deliveries (chacune interrogeait les autres
+-- via une sous-requête soumise à RLS, qui rappelait la première -> boucle
+-- infinie). Même principe que current_role_is : contourne la RLS en interne.
+-- IMPORTANT : contrairement à credit_platform_account/process_scheduled_payouts,
+-- ces fonctions SONT appelées par la policy pour le compte de l'utilisateur
+-- courant -> elles doivent rester exécutables par anon/authenticated.
+create or replace function is_batch_client(p_batch_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from order_batches where id = p_batch_id and user_id = auth.uid());
+$$;
+create or replace function is_batch_courier(p_batch_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from deliveries where batch_id = p_batch_id and courier_id = auth.uid());
+$$;
+create or replace function is_batch_seller(p_batch_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from orders o join shops s on s.id = o.shop_id
+    where o.batch_id = p_batch_id and s.owner_id = auth.uid()
+  );
+$$;
+grant execute on function is_batch_client(uuid) to anon, authenticated;
+grant execute on function is_batch_courier(uuid) to anon, authenticated;
+grant execute on function is_batch_seller(uuid) to anon, authenticated;
+
 create policy "order_batches_select_involved" on order_batches
   for select using (
     user_id = auth.uid()
-    or exists (select 1 from orders o join shops s on s.id = o.shop_id where o.batch_id = order_batches.id and s.owner_id = auth.uid())
-    or exists (select 1 from deliveries d where d.batch_id = order_batches.id and d.courier_id = auth.uid())
+    or is_batch_seller(id)
+    or is_batch_courier(id)
     or current_role_is('admin')
   );
 create policy "order_batches_insert_own" on order_batches for insert with check (user_id = auth.uid());
@@ -414,7 +440,7 @@ create policy "orders_select_involved" on orders
   for select using (
     user_id = auth.uid()
     or exists (select 1 from shops where shops.id = orders.shop_id and shops.owner_id = auth.uid())
-    or exists (select 1 from deliveries d where d.batch_id = orders.batch_id and d.courier_id = auth.uid())
+    or is_batch_courier(batch_id)
     or current_role_is('admin')
   );
 create policy "orders_insert_own" on orders for insert with check (user_id = auth.uid());
@@ -437,18 +463,15 @@ create policy "order_items_insert_own_order" on order_items
   for insert with check (exists (select 1 from orders where orders.id = order_id and orders.user_id = auth.uid()));
 
 create policy "payments_select_own_or_admin" on payments
-  for select using (
-    exists (select 1 from order_batches where order_batches.id = payments.batch_id and order_batches.user_id = auth.uid())
-    or current_role_is('admin')
-  );
+  for select using (is_batch_client(batch_id) or current_role_is('admin'));
 create policy "payments_insert_own_batch" on payments
   for insert with check (exists (select 1 from order_batches where order_batches.id = batch_id and order_batches.user_id = auth.uid()));
 
 create policy "deliveries_select_involved" on deliveries
   for select using (
     courier_id = auth.uid()
-    or exists (select 1 from order_batches where order_batches.id = deliveries.batch_id and order_batches.user_id = auth.uid())
-    or exists (select 1 from orders o join shops s on s.id = o.shop_id where o.batch_id = deliveries.batch_id and s.owner_id = auth.uid())
+    or is_batch_client(batch_id)
+    or is_batch_seller(batch_id)
     or current_role_is('admin')
   );
 create policy "deliveries_update_courier_or_admin" on deliveries
