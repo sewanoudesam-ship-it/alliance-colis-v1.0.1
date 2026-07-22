@@ -104,10 +104,10 @@ export default function SellerDashboard({ userId }: Props) {
     const ok = await updateOrderStatus(order.id, status);
     setBusyId(null);
     if (!ok) {
-      flashError(`Échec de la mise à jour de la commande ${order.tracking_code}.`);
+      flashError(`Échec de la mise à jour de la commande #${order.id.slice(0, 8).toUpperCase()}.`);
       return;
     }
-    flashSuccess(`Commande ${order.tracking_code} mise à jour.`);
+    flashSuccess(`Commande #${order.id.slice(0, 8).toUpperCase()} mise à jour.`);
     listShopOrders(shop.id).then(setOrders);
   }
 
