@@ -47,7 +47,7 @@ export const MOBILE_MONEY_OPERATORS: { label: string; color: string; initials: s
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {
   pending: "En attente",
-  confirmed: "Confirmée",
+  confirmed: "Prête (confirmée)",
   processing: "En préparation",
   completed: "Livrée",
   cancelled: "Annulée",

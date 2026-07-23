@@ -1,20 +1,6 @@
 import { supabase } from "../lib/supabase";
 import type { Delivery, DeliveryStatus } from "../types";
 
-/** Missions disponibles : lots confirmés sans coursier assigné. */
-export async function listAvailableMissions(): Promise<Delivery[]> {
-  const { data, error } = await supabase
-    .from("deliveries")
-    .select("*, order_batches(*)")
-    .is("courier_id", null)
-    .order("created_at", { ascending: true });
-  if (error) {
-    console.error("listAvailableMissions:", error.message);
-    return [];
-  }
-  return data ?? [];
-}
-
 export async function listCourierMissions(courierId: string): Promise<Delivery[]> {
   const { data, error } = await supabase
     .from("deliveries")
@@ -41,15 +27,6 @@ export async function listCourierHistory(courierId: string): Promise<Delivery[]>
     return [];
   }
   return data ?? [];
-}
-
-export async function acceptMission(deliveryId: string, courierId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from("deliveries")
-    .update({ courier_id: courierId, accepted_at: new Date().toISOString() })
-    .eq("id", deliveryId)
-    .is("courier_id", null);
-  return !error;
 }
 
 export async function updateDeliveryStatus(deliveryId: string, status: DeliveryStatus): Promise<boolean> {

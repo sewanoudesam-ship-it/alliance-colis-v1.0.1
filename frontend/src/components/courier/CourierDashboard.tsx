@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  listAvailableMissions,
   listCourierMissions,
   listCourierHistory,
-  acceptMission,
   updateDeliveryStatus,
   updateCourierPosition,
 } from "../../services/deliveryService";
@@ -13,7 +11,7 @@ import { DELIVERY_STATUS_LABELS } from "../../lib/constants";
 import type { Delivery, DeliveryStatus, Wallet, ScheduledPayout } from "../../types";
 
 type Props = { userId: string };
-type Tab = "available" | "active" | "history" | "wallet";
+type Tab = "active" | "history" | "wallet";
 
 const NEXT_STATUS: Record<string, DeliveryStatus | null> = {
   assigned: "picked_up",
@@ -28,9 +26,14 @@ const NEXT_LABEL: Record<string, string> = {
   out_for_delivery: "Marquer livré",
 };
 
+/**
+ * Le coursier ne choisit plus ses missions : l'administrateur les lui
+ * assigne directement (voir AdminDashboard, onglet "Dispatch"). Ce tableau
+ * de bord n'affiche donc que "Mes missions" (déjà assignées), l'historique
+ * et le portefeuille — plus d'onglet "Disponibles" en libre-service.
+ */
 export default function CourierDashboard({ userId }: Props) {
-  const [tab, setTab] = useState<Tab>("available");
-  const [available, setAvailable] = useState<Delivery[]>([]);
+  const [tab, setTab] = useState<Tab>("active");
   const [active, setActive] = useState<Delivery[]>([]);
   const [history, setHistory] = useState<Delivery[]>([]);
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -39,7 +42,6 @@ export default function CourierDashboard({ userId }: Props) {
 
   async function refresh() {
     setLoading(true);
-    if (tab === "available") setAvailable(await listAvailableMissions());
     if (tab === "active") setActive(await listCourierMissions(userId));
     if (tab === "history") setHistory(await listCourierHistory(userId));
     if (tab === "wallet") {
@@ -53,11 +55,6 @@ export default function CourierDashboard({ userId }: Props) {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
-
-  async function handleAccept(deliveryId: string) {
-    await acceptMission(deliveryId, userId);
-    refresh();
-  }
 
   async function handleAdvance(delivery: Delivery) {
     const next = NEXT_STATUS[delivery.status];
@@ -76,35 +73,25 @@ export default function CourierDashboard({ userId }: Props) {
   return (
     <div>
       <h1 className="ac-page-title">Espace coursier</h1>
-      <p className="ac-page-subtitle">Vos missions de livraison.</p>
+      <p className="ac-page-subtitle">Vos missions assignées par Alliance Colis.</p>
 
       <div className="ac-tabs">
-        <button className={`ac-tab ${tab === "available" ? "active" : ""}`} onClick={() => setTab("available")}>Disponibles</button>
-        <button className={`ac-tab ${tab === "active" ? "active" : ""}`} onClick={() => setTab("active")}>En cours</button>
+        <button className={`ac-tab ${tab === "active" ? "active" : ""}`} onClick={() => setTab("active")}>Mes missions</button>
         <button className={`ac-tab ${tab === "history" ? "active" : ""}`} onClick={() => setTab("history")}>Historique</button>
         <button className={`ac-tab ${tab === "wallet" ? "active" : ""}`} onClick={() => setTab("wallet")}>Portefeuille</button>
       </div>
 
       {loading && <div className="ac-skeleton" style={{ height: 160 }} />}
 
-      {!loading && tab === "available" && (
-        <div className="ac-list">
-          {available.length === 0 && <div className="ac-empty"><div className="ac-empty__icon">🛵</div><div className="ac-empty__title">Aucune mission disponible</div></div>}
-          {available.map((d) => (
-            <div key={d.id} className="ac-row">
-              <div className="ac-row__main">
-                <span className="ac-row__title">{d.order_batches?.tracking_code}</span>
-                <span className="ac-row__meta">{d.order_batches?.delivery_address} · {formatFCFA(d.order_batches?.delivery_fee ?? 0)}</span>
-              </div>
-              <button className="ac-btn ac-btn--primary ac-btn--sm" onClick={() => handleAccept(d.id)}>Accepter</button>
-            </div>
-          ))}
-        </div>
-      )}
-
       {!loading && tab === "active" && (
         <div className="ac-list">
-          {active.length === 0 && <div className="ac-empty"><div className="ac-empty__icon">🚚</div><div className="ac-empty__title">Aucune mission en cours</div></div>}
+          {active.length === 0 && (
+            <div className="ac-empty">
+              <div className="ac-empty__icon">🛵</div>
+              <div className="ac-empty__title">Aucune mission pour le moment</div>
+              <div className="ac-empty__text">L'administrateur vous assigne une mission dès qu'une commande est prête.</div>
+            </div>
+          )}
           {active.map((d) => (
             <div key={d.id} className="ac-card ac-card--pad">
               <div className="ac-flex ac-justify-between ac-mb-8">
@@ -112,6 +99,7 @@ export default function CourierDashboard({ userId }: Props) {
                 <span className="ac-badge ac-badge--brand">{DELIVERY_STATUS_LABELS[d.status]}</span>
               </div>
               <p className="ac-text-sm ac-mb-8">{d.order_batches?.delivery_address}</p>
+              <p className="ac-text-sm ac-mb-8">Frais de livraison : {formatFCFA(d.order_batches?.delivery_fee ?? 0)}</p>
               {NEXT_STATUS[d.status] && (
                 <button className="ac-btn ac-btn--dark" onClick={() => handleAdvance(d)}>{NEXT_LABEL[d.status]}</button>
               )}

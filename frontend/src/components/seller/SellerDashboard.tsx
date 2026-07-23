@@ -12,6 +12,13 @@ import AddProduct from "./AddProduct";
 
 type Props = { userId: string };
 type Tab = "shop" | "products" | "orders" | "wallet";
+
+/**
+ * Le vendeur ne contrôle que la préparation de sa part : "confirmé" signale
+ * à l'entrepôt que sa part est prête. "Livré" est désormais déclenché
+ * automatiquement par la livraison (coursier), pas choisi manuellement ici.
+ */
+const SELLER_EDITABLE_STATUSES: Order["status"][] = ["pending", "processing", "confirmed", "cancelled"];
 type ToastState = { type: "success" | "danger"; text: string } | null;
 
 export default function SellerDashboard({ userId }: Props) {
@@ -194,16 +201,22 @@ export default function SellerDashboard({ userId }: Props) {
                 <span className="ac-row__title">Commande #{o.id.slice(0, 8).toUpperCase()}</span>
                 <span className="ac-row__meta">{formatDateShort(o.created_at)} · {formatFCFA(o.items_total)}</span>
               </div>
-              <select
-                className="ac-select"
-                value={o.status}
-                disabled={busyId === o.id}
-                onChange={(e) => handleOrderStatus(o, e.target.value as Order["status"])}
-              >
-                {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
+              {o.status === "completed" || o.status === "cancelled" ? (
+                <span className={`ac-badge ${o.status === "completed" ? "ac-badge--success" : "ac-badge--danger"}`}>
+                  {ORDER_STATUS_LABELS[o.status]}
+                </span>
+              ) : (
+                <select
+                  className="ac-select"
+                  value={o.status}
+                  disabled={busyId === o.id}
+                  onChange={(e) => handleOrderStatus(o, e.target.value as Order["status"])}
+                >
+                  {SELLER_EDITABLE_STATUSES.map((value) => (
+                    <option key={value} value={value}>{ORDER_STATUS_LABELS[value]}</option>
+                  ))}
+                </select>
+              )}
             </div>
           ))}
         </div>

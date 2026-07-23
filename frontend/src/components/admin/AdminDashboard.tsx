@@ -3,16 +3,16 @@ import { listKyc, approveKyc, rejectKyc } from "../../services/kycService";
 import { listShops, setShopStatus } from "../../services/shopService";
 import { listPendingProducts, approveProduct } from "../../services/productService";
 import { listProfiles, adminSetRole } from "../../services/profileService";
-import { listAllBatches, confirmBatchDistance } from "../../services/orderService";
+import { listAllBatches, confirmBatchDistance, listBatchesReadyForDispatch, dispatchBatch } from "../../services/orderService";
 import { listAllActiveDeliveries } from "../../services/deliveryService";
 import { getPlatformAccount } from "../../services/walletService";
-import { listWarehouses, updateWarehouse } from "../../services/warehouseService";
+import { listWarehouses, updateWarehouse, getActiveWarehouse } from "../../services/warehouseService";
 import { formatFCFA, formatDateShort } from "../../utils/format";
 import { ORDER_STATUS_LABELS, DELIVERY_STATUS_LABELS } from "../../lib/constants";
 import Toast from "../shared/Toast";
 import type { KycDocument, Shop, Product, Profile, OrderBatch, Delivery, PlatformAccount, Warehouse } from "../../types";
 
-type Tab = "overview" | "kyc" | "shops" | "products" | "users" | "deliveries" | "orders" | "warehouse";
+type Tab = "overview" | "kyc" | "shops" | "products" | "users" | "dispatch" | "deliveries" | "orders" | "warehouse";
 type ToastState = { type: "success" | "danger"; text: string } | null;
 
 export default function AdminDashboard() {
@@ -24,6 +24,10 @@ export default function AdminDashboard() {
   const [batches, setBatches] = useState<OrderBatch[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [readyBatches, setReadyBatches] = useState<OrderBatch[]>([]);
+  const [couriers, setCouriers] = useState<Profile[]>([]);
+  const [activeWarehouse, setActiveWarehouse] = useState<Warehouse | null>(null);
+  const [courierDrafts, setCourierDrafts] = useState<Record<string, string>>({});
   const [platformAccount, setPlatformAccount] = useState<PlatformAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -53,6 +57,16 @@ export default function AdminDashboard() {
     if (tab === "deliveries") setDeliveries(await listAllActiveDeliveries());
     if (tab === "orders") setBatches(await listAllBatches());
     if (tab === "warehouse") setWarehouses(await listWarehouses());
+    if (tab === "dispatch") {
+      const [rb, c, w] = await Promise.all([
+        listBatchesReadyForDispatch(),
+        listProfiles("courier"),
+        getActiveWarehouse(),
+      ]);
+      setReadyBatches(rb);
+      setCouriers(c);
+      setActiveWarehouse(w);
+    }
     setLoading(false);
   }
 
@@ -129,6 +143,19 @@ export default function AdminDashboard() {
     refresh();
   }
 
+  async function handleDispatch(batch: OrderBatch) {
+    const courierId = courierDrafts[batch.id];
+    if (!courierId) { flashError("Choisissez un coursier avant de valider."); return; }
+    if (!activeWarehouse) { flashError("Aucun entrepôt actif configuré."); return; }
+
+    setBusyId(batch.id);
+    const result = await dispatchBatch(batch.id, courierId, activeWarehouse.warehouse_lat, activeWarehouse.warehouse_lng);
+    setBusyId(null);
+    if (!result.success) { flashError(result.error ?? `Échec de l'assignation pour ${batch.tracking_code}.`); return; }
+    flashSuccess(`${batch.tracking_code} assignée au coursier — position de départ : entrepôt.`);
+    refresh();
+  }
+
   const batchesNeedingConfirmation = batches.filter((b) => b.location_source === "address");
 
   return (
@@ -144,6 +171,7 @@ export default function AdminDashboard() {
         <button className={`ac-tab ${tab === "shops" ? "active" : ""}`} onClick={() => setTab("shops")}>Boutiques</button>
         <button className={`ac-tab ${tab === "products" ? "active" : ""}`} onClick={() => setTab("products")}>Produits</button>
         <button className={`ac-tab ${tab === "users" ? "active" : ""}`} onClick={() => setTab("users")}>Utilisateurs</button>
+        <button className={`ac-tab ${tab === "dispatch" ? "active" : ""}`} onClick={() => setTab("dispatch")}>Dispatch</button>
         <button className={`ac-tab ${tab === "deliveries" ? "active" : ""}`} onClick={() => setTab("deliveries")}>Livraisons</button>
         <button className={`ac-tab ${tab === "orders" ? "active" : ""}`} onClick={() => setTab("orders")}>Commandes</button>
         <button className={`ac-tab ${tab === "warehouse" ? "active" : ""}`} onClick={() => setTab("warehouse")}>Entrepôt</button>
@@ -274,6 +302,49 @@ export default function AdminDashboard() {
             </div>
           ))}
         </div>
+      )}
+
+      {!loading && tab === "dispatch" && (
+        <>
+          <p className="ac-text-sm ac-mb-8">
+            Lots payés dont toutes les boutiques ont confirmé leur part — prêts à être assignés à un coursier.
+            La position de départ du coursier sera automatiquement celle de l'entrepôt actif
+            ({activeWarehouse?.name ?? "aucun entrepôt actif"}).
+          </p>
+          <div className="ac-list">
+            {readyBatches.length === 0 && (
+              <div className="ac-empty">
+                <div className="ac-empty__icon">📦</div>
+                <div className="ac-empty__title">Aucun lot prêt pour le moment</div>
+                <div className="ac-empty__text">Les lots apparaissent ici une fois toutes leurs boutiques confirmées.</div>
+              </div>
+            )}
+            {readyBatches.map((b) => (
+              <div key={b.id} className="ac-card ac-card--pad">
+                <div className="ac-flex ac-justify-between ac-mb-8">
+                  <span className="ac-row__title">{b.tracking_code}</span>
+                  <span className="ac-badge ac-badge--success">Prêt à expédier</span>
+                </div>
+                <p className="ac-text-sm ac-mb-8">{b.delivery_address} · {formatFCFA(b.total_price)}</p>
+                <div className="ac-flex ac-gap-8">
+                  <select
+                    className="ac-select ac-full-width"
+                    value={courierDrafts[b.id] ?? ""}
+                    onChange={(e) => setCourierDrafts((d) => ({ ...d, [b.id]: e.target.value }))}
+                  >
+                    <option value="">Choisir un coursier…</option>
+                    {couriers.map((c) => (
+                      <option key={c.id} value={c.id}>{c.full_name}</option>
+                    ))}
+                  </select>
+                  <button className="ac-btn ac-btn--primary ac-btn--sm" disabled={busyId === b.id} onClick={() => handleDispatch(b)}>
+                    {busyId === b.id ? "…" : "Valider"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {!loading && tab === "deliveries" && (

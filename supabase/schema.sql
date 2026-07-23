@@ -535,24 +535,26 @@ create policy "auth_write_kyc" on storage.objects
   for insert with check (bucket_id = 'kyc' and auth.uid()::text = (storage.foldername(name))[1]);
 
 -- ============================================================================
--- TRIGGER : paiement confirmé -> livraison unique créée pour le lot
+-- DISPATCH MANUEL ADMIN (remplace la création automatique de livraison au
+-- paiement, en vigueur avant le 2026-07-20) :
+--   1. Paiement confirmé -> order_batches.status = 'confirmed' (webhook)
+--   2. Chaque boutique prépare sa part et passe SON "orders.status" à
+--      'confirmed' (ne déclenche plus rien automatiquement)
+--   3. Quand TOUTES les boutiques d'un lot sont à 'confirmed', il apparaît
+--      dans la vue ci-dessous
+--   4. L'admin choisit un coursier et valide -> crée la livraison, assignée
+--      directement (plus de "missions disponibles" en libre-service),
+--      position de départ du coursier = position de l'entrepôt
 -- ============================================================================
-create or replace function create_delivery_on_batch_confirmation()
-returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  if new.status = 'confirmed' and old.status is distinct from 'confirmed' then
-    insert into deliveries (batch_id, status) values (new.id, 'assigned') on conflict do nothing;
-    update orders set status = 'confirmed' where batch_id = new.id and status = 'pending';
-  end if;
-  return new;
-end;
-$$;
-revoke execute on function create_delivery_on_batch_confirmation() from public, anon, authenticated;
+create or replace view batches_ready_for_dispatch
+with (security_invoker = on) as
+select ob.*
+from order_batches ob
+where ob.status = 'confirmed'
+  and not exists (select 1 from deliveries d where d.batch_id = ob.id)
+  and not exists (select 1 from orders o where o.batch_id = ob.id and o.status <> 'confirmed');
 
-drop trigger if exists trg_create_delivery_on_batch on order_batches;
-create trigger trg_create_delivery_on_batch
-  after update on order_batches
-  for each row execute function create_delivery_on_batch_confirmation();
+grant select on batches_ready_for_dispatch to authenticated;
 
 -- ============================================================================
 -- TRIGGER : livraison terminée -> versements planifiés (vendeur 24h/commande,

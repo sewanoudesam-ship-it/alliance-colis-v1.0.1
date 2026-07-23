@@ -155,6 +155,54 @@ export async function listAllBatches(): Promise<OrderBatch[]> {
   return data ?? [];
 }
 
+/**
+ * Admin : lots payés, dont TOUTES les boutiques ont confirmé leur part, sans
+ * livraison encore créée -> prêts à être assignés à un coursier.
+ */
+export async function listBatchesReadyForDispatch(): Promise<OrderBatch[]> {
+  const { data, error } = await supabase
+    .from("batches_ready_for_dispatch")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("listBatchesReadyForDispatch:", error.message);
+    return [];
+  }
+  return data ?? [];
+}
+
+/**
+ * Admin : valide un lot prêt et l'assigne explicitement à un coursier (plus
+ * de "missions disponibles" en libre-service — le coursier reçoit
+ * directement la mission). La position initiale du coursier est celle de
+ * l'entrepôt, pour que le calcul de distance/suivi soit cohérent dès le
+ * départ, avant sa première position GPS réelle.
+ */
+export async function dispatchBatch(
+  batchId: string,
+  courierId: string,
+  warehouseLat: number,
+  warehouseLng: number
+): Promise<{ success: boolean; error?: string }> {
+  const { error: deliveryError } = await supabase.from("deliveries").insert({
+    batch_id: batchId,
+    courier_id: courierId,
+    status: "assigned",
+    courier_lat: warehouseLat,
+    courier_lng: warehouseLng,
+    accepted_at: new Date().toISOString(),
+  });
+  if (deliveryError) return { success: false, error: deliveryError.message };
+
+  const { error: batchError } = await supabase
+    .from("order_batches")
+    .update({ status: "processing" })
+    .eq("id", batchId);
+  if (batchError) return { success: false, error: batchError.message };
+
+  return { success: true };
+}
+
 /** Admin : corrige la distance d'un lot sans GPS, recalcule le tarif, et
  * marque la localisation comme confirmée manuellement. */
 export async function confirmBatchDistance(batchId: string, distanceKm: number): Promise<boolean> {
